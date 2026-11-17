@@ -10,6 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@xyflow/react": "^13.0.1",
+    "firebase": "^13.2.0",
+    "grapesjs": "0.22.8",
+    "grapesjs-preset-newsletter": "1.0.2",
     "hono": "^4.13.0",
     "lucide-react": "^1.60.0",
     "motion": "^14.4.0",

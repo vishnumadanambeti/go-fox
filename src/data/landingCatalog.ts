@@ -1,0 +1,841 @@
+// Landing-page gallery metadata. The template HTML (8 MB in total) is fetched from the
+// credited upstream source only when a page is previewed or imported, so the app shell stays small.
+export type LandingTemplate = {
+  id: string
+  name: string
+  industry: string
+  description: string
+  screenshot: string
+  previewUrl: string
+  sourceUrl: string
+  license: string
+  isFree: boolean
+}
+
+export const LANDING_TEMPLATES: LandingTemplate[] = [
+ {
+  "id": "apps-aisales",
+  "name": "Aisales",
+  "industry": "Mobile Apps",
+  "description": "Aisales — free mobile apps landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/screenshots/aisales.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/AISales/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "apps-chatorigin",
+  "name": "Chatorigin",
+  "industry": "Mobile Apps",
+  "description": "Chatorigin — free mobile apps landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/screenshots/chat-origin.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/chatorigin/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "apps-navigator",
+  "name": "Navigator",
+  "industry": "Mobile Apps",
+  "description": "Navigator — free mobile apps landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/screenshots/navigator.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/navigator/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "apps-traveler",
+  "name": "Traveler",
+  "industry": "Mobile Apps",
+  "description": "Traveler — free mobile apps landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/screenshots/traveler.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/apps/traveler/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "law-lawfire",
+  "name": "Lawfire",
+  "industry": "Legal",
+  "description": "Lawfire — free legal landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/law/screenshots/law-fire.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/law/lawfire/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "law-lawgroup",
+  "name": "Lawgroup",
+  "industry": "Legal",
+  "description": "Lawgroup — free legal landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/law/screenshots/lawgroup.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/law/lawgroup/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "ngo-project-africa",
+  "name": "Project Africa",
+  "industry": "Nonprofit",
+  "description": "Project Africa — free nonprofit landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/ngo/screenshots/project-africa.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/ngo/project-africa/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "others-carwash",
+  "name": "Carwash",
+  "industry": "Services",
+  "description": "Carwash — free services landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/others/screenshots/carwash.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/others/carwash/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "portfolio-jamie-portfolio",
+  "name": "Jamie Portfolio",
+  "industry": "Portfolio",
+  "description": "Jamie Portfolio — free portfolio landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/screenshots/jamie-dev-portfolio.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/Jamie-portfolio/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "portfolio-bella",
+  "name": "Bella",
+  "industry": "Portfolio",
+  "description": "Bella — free portfolio landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/screenshots/bella.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/bella/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "portfolio-jrdev",
+  "name": "Jrdev",
+  "industry": "Portfolio",
+  "description": "Jrdev — free portfolio landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/screenshots/dev.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/jrdev/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "portfolio-notion",
+  "name": "Notion",
+  "industry": "Portfolio",
+  "description": "Notion — free portfolio landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/screenshots/notion.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/portfolio/notion/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "realestate-brickproperty",
+  "name": "Brickproperty",
+  "industry": "Real Estate",
+  "description": "Brickproperty — free real estate landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/realestate/screenshots/brickstone.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/realestate/brickproperty/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "restaurant-bistro",
+  "name": "Bistro",
+  "industry": "Restaurant",
+  "description": "Bistro — free restaurant landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/restaurant/screenshots/bistro.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/restaurant/bistro/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "restaurant-nutrio",
+  "name": "Nutrio",
+  "industry": "Restaurant",
+  "description": "Nutrio — free restaurant landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/restaurant/screenshots/nutrio.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/restaurant/nutrio/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "saas-celestialsaas",
+  "name": "Celestialsaas",
+  "industry": "SaaS",
+  "description": "Celestialsaas — free saas landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/screenshots/celestialsaas.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/CelestialSaaS/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "saas-saas-ai",
+  "name": "Saas Ai",
+  "industry": "SaaS",
+  "description": "Saas Ai — free saas landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/screenshots/ai-saas.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/SaaS-AI/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "saas-saasydark",
+  "name": "Saasydark",
+  "industry": "SaaS",
+  "description": "Saasydark — free saas landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/screenshots/saasydark.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/SaaSyDark/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "saas-finance",
+  "name": "Finance",
+  "industry": "SaaS",
+  "description": "Finance — free saas landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/screenshots/finance.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/finance/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "saas-pixaai",
+  "name": "Pixaai",
+  "industry": "SaaS",
+  "description": "Pixaai — free saas landing page template (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/screenshots/pixa.png",
+  "previewUrl": "https://raw.githubusercontent.com/PaulleDemon/awesome-landing-pages/main/src/saas/pixaai/index.html",
+  "sourceUrl": "https://github.com/PaulleDemon/awesome-landing-pages",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-afterparty",
+  "name": "Afterparty",
+  "industry": "Landing Page",
+  "description": "Afterparty — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/afterparty/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/afterparty/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-artup",
+  "name": "Artup",
+  "industry": "Landing Page",
+  "description": "Artup — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/artup/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/artup/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-atelier",
+  "name": "Atelier",
+  "industry": "Landing Page",
+  "description": "Atelier — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/atelier/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/atelier/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-aurora-glass-link-in-bio",
+  "name": "Aurora Glass Link In Bio",
+  "industry": "Landing Page",
+  "description": "Aurora Glass Link In Bio — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/aurora-glass-link-in-bio/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/aurora-glass-link-in-bio/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-backrow",
+  "name": "Backrow",
+  "industry": "Landing Page",
+  "description": "Backrow — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/backrow/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/backrow/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-between",
+  "name": "Between",
+  "industry": "Landing Page",
+  "description": "Between — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/between/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/between/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-booked",
+  "name": "Booked",
+  "industry": "Landing Page",
+  "description": "Booked — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/booked/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/booked/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-byline",
+  "name": "Byline",
+  "industry": "Landing Page",
+  "description": "Byline — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/byline/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/byline/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-cadenza",
+  "name": "Cadenza",
+  "industry": "Landing Page",
+  "description": "Cadenza — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/cadenza/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/cadenza/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-calltime",
+  "name": "Calltime",
+  "industry": "Landing Page",
+  "description": "Calltime — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/calltime/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/calltime/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-cindermoth",
+  "name": "Cindermoth",
+  "industry": "Landing Page",
+  "description": "Cindermoth — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/cindermoth/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/cindermoth/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-clarity",
+  "name": "Clarity",
+  "industry": "Landing Page",
+  "description": "Clarity — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/clarity/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/clarity/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-clearcoat",
+  "name": "Clearcoat",
+  "industry": "Landing Page",
+  "description": "Clearcoat — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/clearcoat/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/clearcoat/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-compass",
+  "name": "Compass",
+  "industry": "Landing Page",
+  "description": "Compass — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/compass/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/compass/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-craft",
+  "name": "Craft",
+  "industry": "Landing Page",
+  "description": "Craft — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/craft/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/craft/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-daybreak",
+  "name": "Daybreak",
+  "industry": "Landing Page",
+  "description": "Daybreak — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/daybreak/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/daybreak/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-ember",
+  "name": "Ember",
+  "industry": "Landing Page",
+  "description": "Ember — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/ember/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/ember/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-fairweather",
+  "name": "Fairweather",
+  "industry": "Landing Page",
+  "description": "Fairweather — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/fairweather/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/fairweather/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-fennel",
+  "name": "Fennel",
+  "industry": "Landing Page",
+  "description": "Fennel — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/fennel/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/fennel/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-folio",
+  "name": "Folio",
+  "industry": "Landing Page",
+  "description": "Folio — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/folio/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/folio/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-forge",
+  "name": "Forge",
+  "industry": "Landing Page",
+  "description": "Forge — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/forge/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/forge/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-free-edge",
+  "name": "Free Edge",
+  "industry": "Landing Page",
+  "description": "Free Edge — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/free-edge/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/free-edge/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-gather",
+  "name": "Gather",
+  "industry": "Landing Page",
+  "description": "Gather — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/gather/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/gather/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-good-work",
+  "name": "Good Work",
+  "industry": "Landing Page",
+  "description": "Good Work — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/good-work/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/good-work/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-halflight",
+  "name": "Halflight",
+  "industry": "Landing Page",
+  "description": "Halflight — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/halflight/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/halflight/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-imprint",
+  "name": "Imprint",
+  "industry": "Landing Page",
+  "description": "Imprint — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/imprint/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/imprint/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-ironside",
+  "name": "Ironside",
+  "industry": "Landing Page",
+  "description": "Ironside — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/ironside/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/ironside/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-juno",
+  "name": "Juno",
+  "industry": "Landing Page",
+  "description": "Juno — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/juno/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/juno/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-kindred",
+  "name": "Kindred",
+  "industry": "Landing Page",
+  "description": "Kindred — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/kindred/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/kindred/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-linker",
+  "name": "Linker",
+  "industry": "Landing Page",
+  "description": "Linker — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/linker/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/linker/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-lume",
+  "name": "Lume",
+  "industry": "Landing Page",
+  "description": "Lume — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/lume/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/lume/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-marigold",
+  "name": "Marigold",
+  "industry": "Landing Page",
+  "description": "Marigold — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/marigold/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/marigold/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-marquee",
+  "name": "Marquee",
+  "industry": "Landing Page",
+  "description": "Marquee — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/marquee/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/marquee/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-morrow",
+  "name": "Morrow",
+  "industry": "Landing Page",
+  "description": "Morrow — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/morrow/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/morrow/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-neon-nocturne-link-in-bio",
+  "name": "Neon Nocturne Link In Bio",
+  "industry": "Landing Page",
+  "description": "Neon Nocturne Link In Bio — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/neon-nocturne-link-in-bio/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/neon-nocturne-link-in-bio/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-nimbus",
+  "name": "Nimbus",
+  "industry": "Landing Page",
+  "description": "Nimbus — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/nimbus/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/nimbus/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-oak",
+  "name": "Oak",
+  "industry": "Landing Page",
+  "description": "Oak — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/oak/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/oak/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-ocho-ventanas",
+  "name": "Ocho Ventanas",
+  "industry": "Landing Page",
+  "description": "Ocho Ventanas — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/ocho-ventanas/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/ocho-ventanas/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-plumb",
+  "name": "Plumb",
+  "industry": "Landing Page",
+  "description": "Plumb — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/plumb/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/plumb/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-poplink",
+  "name": "Poplink",
+  "industry": "Landing Page",
+  "description": "Poplink — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/poplink/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/poplink/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-porchlight",
+  "name": "Porchlight",
+  "industry": "Landing Page",
+  "description": "Porchlight — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/porchlight/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/porchlight/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-primer",
+  "name": "Primer",
+  "industry": "Landing Page",
+  "description": "Primer — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/primer/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/primer/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-proof",
+  "name": "Proof",
+  "industry": "Landing Page",
+  "description": "Proof — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/proof/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/proof/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-pulsar",
+  "name": "Pulsar",
+  "industry": "Landing Page",
+  "description": "Pulsar — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/pulsar/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/pulsar/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-recess",
+  "name": "Recess",
+  "industry": "Landing Page",
+  "description": "Recess — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/recess/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/recess/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-roomful",
+  "name": "Roomful",
+  "industry": "Landing Page",
+  "description": "Roomful — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/roomful/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/roomful/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-scope",
+  "name": "Scope",
+  "industry": "Landing Page",
+  "description": "Scope — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/scope/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/scope/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-setpoint",
+  "name": "Setpoint",
+  "industry": "Landing Page",
+  "description": "Setpoint — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/setpoint/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/setpoint/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-slackwater",
+  "name": "Slackwater",
+  "industry": "Landing Page",
+  "description": "Slackwater — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/slackwater/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/slackwater/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-stdout",
+  "name": "Stdout",
+  "industry": "Landing Page",
+  "description": "Stdout — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/stdout/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/stdout/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-tally",
+  "name": "Tally",
+  "industry": "Landing Page",
+  "description": "Tally — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/tally/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/tally/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-undercoat",
+  "name": "Undercoat",
+  "industry": "Landing Page",
+  "description": "Undercoat — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/undercoat/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/undercoat/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-vantage",
+  "name": "Vantage",
+  "industry": "Landing Page",
+  "description": "Vantage — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/vantage/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/vantage/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-varnish",
+  "name": "Varnish",
+  "industry": "Landing Page",
+  "description": "Varnish — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/varnish/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/varnish/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ },
+ {
+  "id": "swebsy-wren-wildflower",
+  "name": "Wren Wildflower",
+  "industry": "Landing Page",
+  "description": "Wren Wildflower — free landing page template by Swebsy (MIT).",
+  "screenshot": "https://raw.githubusercontent.com/swebsy/templates/main/wren-wildflower/thumb.webp",
+  "previewUrl": "https://raw.githubusercontent.com/swebsy/templates/main/wren-wildflower/site/index.html",
+  "sourceUrl": "https://github.com/swebsy/templates",
+  "license": "MIT",
+  "isFree": true
+ }
+]

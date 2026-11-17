@@ -1,0 +1,21 @@
+# Copy to .dev.vars for local wrangler/vite dev. Never commit real secrets.
+# On Freebuff Sites set these under Sites → Secrets (they become Worker secrets).
+
+# Public origin used to build the OAuth redirect URI when GOOGLE_REDIRECT_URI is unset.
+APP_BASE_URL=http://localhost:5173
+
+# Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID (Web application).
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Must match an Authorised redirect URI in the Google client exactly.
+# Production example: https://<your-site>.freebuff.page/api/integrations/gmail/callback
+GOOGLE_REDIRECT_URI=http://localhost:5173/api/integrations/gmail/callback
+
+# Recommended: random 32+ byte string used to HMAC-sign the OAuth state parameter.
+# Generate with: openssl rand -hex 32
+GOOGLE_OAUTH_STATE_SECRET=
+
+# Optional: Microsoft 365 Graph mail (Outlook card on Email accounts).
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
