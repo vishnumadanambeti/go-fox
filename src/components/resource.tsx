@@ -13,6 +13,15 @@ import {
   User,
   Target,
   Handshake,
+  Columns,
+  Kanban,
+  LayoutGrid,
+  Mail,
+  Phone,
+  Star,
+  Table as TableIcon,
+  Tag,
+  X,
 } from 'lucide-react'
 import { del, downloadCsv, patch, post, query, type Row } from '../lib/api'
 import { labelFor, useApp, useFetch, useRefOptions, type EntitySchema, type FieldSchema } from '../lib/app-context'
@@ -34,6 +43,7 @@ import {
   FormRow,
   IconButton,
   MenuItem,
+  Modal,
   PageHeader,
   Pagination,
   SearchInput,
@@ -351,6 +361,11 @@ export function ResourcePage({
   onRowClick,
   breadcrumb,
   hideCreate,
+  tabs,
+  activeTab,
+  onTabChange,
+  showViewModes = true,
+  renderDrawer,
 }: {
   entity: string
   title?: string
@@ -360,6 +375,11 @@ export function ResourcePage({
   onRowClick?: (row: Row) => void
   breadcrumb?: ReactNode
   hideCreate?: boolean
+  tabs?: { key: string; label: string; count?: number }[]
+  activeTab?: string
+  onTabChange?: (key: string) => void
+  showViewModes?: boolean
+  renderDrawer?: (props: { open: boolean; record: Row | null; onClose: () => void; onSaved: () => void }) => ReactNode
 }) {
   const { schema, toast, meta, refreshMeta } = useApp()
   const def = schema[entity]
@@ -376,6 +396,12 @@ export function ResourcePage({
   const [deleting, setDeleting] = useState<Row | null>(null)
   const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'grid'>('table')
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [dateFilter, setDateFilter] = useState<'all' | '7d' | '30d' | '90d'>('all')
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set())
+  const [tagModalOpen, setTagModalOpen] = useState(false)
+  const [tagInput, setTagInput] = useState('')
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -409,7 +435,14 @@ export function ResourcePage({
 
   if (!def) return <Spinner label="Loading workspace schema" />
 
-  const rows = data?.data ?? []
+  let rows = data?.data ?? []
+  if (dateFilter !== 'all') {
+    const cutoff = new Date()
+    const days = dateFilter === '7d' ? 7 : dateFilter === '30d' ? 30 : 90
+    cutoff.setDate(cutoff.getDate() - days)
+    rows = rows.filter((r) => !r.created_at || new Date(String(r.created_at)) >= cutoff)
+  }
+
   const toggleAll = () => {
     setSelected((current) => (current.size === rows.length ? new Set() : new Set(rows.map((r) => r.id))))
   }
@@ -437,14 +470,65 @@ export function ResourcePage({
     }
   }
 
+  const handleBulkDelete = async () => {
+    if (!selected.size) return
+    setBusy(true)
+    try {
+      await post(`/api/resources/${entity}/bulk`, { action: 'delete', ids: Array.from(selected) })
+      toast(`${selected.size} record(s) moved to trash.`, 'good')
+      setSelected(new Set())
+      reload()
+      refreshMeta()
+    } catch (err: any) {
+      toast(err?.message ?? 'Bulk delete failed.', 'bad')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleBulkTag = async () => {
+    if (!selected.size || !tagInput.trim()) return
+    setBusy(true)
+    try {
+      await post(`/api/resources/${entity}/bulk`, { action: 'tag', ids: Array.from(selected), tag: tagInput.trim() })
+      toast(`Tag "${tagInput.trim()}" applied to ${selected.size} record(s).`, 'good')
+      setTagModalOpen(false)
+      setTagInput('')
+      setSelected(new Set())
+      reload()
+    } catch (err: any) {
+      toast(err?.message ?? 'Applying tag failed.', 'bad')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const openRow = (row: Row) => {
     if (onRowClick) return onRowClick(row)
     if (def.detailPath) navigate(`${def.detailPath}/${row.id}`)
   }
 
+  const visibleColumns = def.list.filter((col) => !hiddenCols.has(col))
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title={title ?? def.label} subtitle={subtitle ?? `${data?.total ?? 0} ${def.label.toLowerCase()}`} breadcrumb={breadcrumb}>
+      <PageHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <span>{title ?? def.label}</span>
+            <button
+              type="button"
+              className={isFavorite ? 'text-amber-500 hover:text-amber-600' : 'text-faint hover:text-muted'}
+              onClick={() => setIsFavorite(!isFavorite)}
+              title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <Star size={16} fill={isFavorite ? 'currentColor' : 'none'} />
+            </button>
+          </span>
+        }
+        subtitle={subtitle ?? `${data?.total ?? 0} ${def.label.toLowerCase()}`}
+        breadcrumb={breadcrumb}
+      >
         {headerActions}
         <IconButton label="Refresh" onClick={reload}>
           <RefreshCw size={15} />
@@ -478,43 +562,140 @@ export function ResourcePage({
         ) : null}
       </PageHeader>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5">
-        <SearchInput value={search} onChange={setSearch} placeholder={`Search ${def.label.toLowerCase()}…`} className="w-full sm:w-64" />
-        {allFilters.map((field) => (
+      {/* Optional Status Tabs (e.g. Leads All | Raw | Primary | Qualified) */}
+      {tabs && tabs.length > 0 ? (
+        <div className="border-b border-line bg-surface px-5">
+          <Tabs tabs={tabs} active={activeTab ?? tabs[0]?.key} onChange={(k) => onTabChange?.(k)} />
+        </div>
+      ) : null}
+
+      {/* Enterprise Filter & Tool Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface-2/40 px-5 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchInput value={search} onChange={setSearch} placeholder={`Search ${def.label.toLowerCase()}…`} className="w-full sm:w-60" />
+          {allFilters.map((field) => (
+            <select
+              key={field.key}
+              className="gx-select w-auto min-w-[120px] text-[12px]"
+              value={filters[field.key] ?? ''}
+              onChange={(event) => {
+                setFilters((current) => ({ ...current, [field.key]: event.target.value }))
+                setPage(1)
+              }}
+              aria-label={`Filter by ${field.label}`}
+            >
+              <option value="">All {field.label.toLowerCase()}</option>
+              {(field.options ?? ['active', 'draft', 'archived', 'open', 'closed', 'pending']).map((option) => (
+                <option key={option} value={option}>
+                  {titleCase(option)}
+                </option>
+              ))}
+            </select>
+          ))}
+
+          {/* Date range filter */}
           <select
-            key={field.key}
-            className="gx-select w-auto min-w-[130px]"
-            value={filters[field.key] ?? ''}
-            onChange={(event) => {
-              setFilters((current) => ({ ...current, [field.key]: event.target.value }))
-              setPage(1)
-            }}
-            aria-label={`Filter by ${field.label}`}
+            className="gx-select w-auto text-[12px]"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value as any)}
+            aria-label="Filter by date range"
           >
-            <option value="">All {field.label.toLowerCase()}</option>
-            {(field.options ?? ['active', 'draft', 'archived', 'open', 'closed', 'pending']).map((option) => (
-              <option key={option} value={option}>
-                {titleCase(option)}
-              </option>
-            ))}
+            <option value="all">All Time</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
           </select>
-        ))}
-        {Object.values(filters).some(Boolean) || sort ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              setFilters({})
-              setSort(undefined)
-              setDir(undefined)
-            }}
+
+          {Object.values(filters).some(Boolean) || sort || dateFilter !== 'all' ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setFilters({})
+                setSort(undefined)
+                setDir(undefined)
+                setDateFilter('all')
+              }}
+            >
+              Clear filters
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {/* Manage Columns Dropdown */}
+          <Dropdown
+            trigger={({ toggle }) => (
+              <Button size="sm" variant="ghost" onClick={toggle} title="Manage visible columns">
+                <Columns size={13} />
+                <span className="hidden sm:inline">Columns</span>
+              </Button>
+            )}
           >
-            Clear filters
-          </Button>
-        ) : null}
-        <span className="ml-auto text-[11.5px] text-faint">{selected.size ? `${selected.size} selected` : ''}</span>
+            {() => (
+              <div className="p-2 space-y-1 w-44 text-[12px]">
+                <div className="font-semibold text-muted px-2 py-1 uppercase text-[10px] tracking-wider">Toggle Columns</div>
+                {def.list.map((col) => {
+                  const field = def.fields.find((f) => f.key === col)
+                  const isVisible = !hiddenCols.has(col)
+                  return (
+                    <label key={col} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-surface-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isVisible}
+                        onChange={() => {
+                          setHiddenCols((current) => {
+                            const next = new Set(current)
+                            if (isVisible) next.add(col)
+                            else next.delete(col)
+                            return next
+                          })
+                        }}
+                        className="size-3.5 accent-[var(--color-accent)]"
+                      />
+                      <span>{field?.label ?? titleCase(col)}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </Dropdown>
+
+          {/* View mode toggle */}
+          {showViewModes ? (
+            <div className="flex items-center rounded-lg border border-line bg-surface p-0.5">
+              <button
+                type="button"
+                className={`rounded p-1 text-xs transition ${viewMode === 'table' ? 'bg-surface-2 text-ink shadow-sm' : 'text-muted hover:text-ink'}`}
+                onClick={() => setViewMode('table')}
+                title="Table view"
+              >
+                <TableIcon size={14} />
+              </button>
+              <button
+                type="button"
+                className={`rounded p-1 text-xs transition ${viewMode === 'kanban' ? 'bg-surface-2 text-ink shadow-sm' : 'text-muted hover:text-ink'}`}
+                onClick={() => setViewMode('kanban')}
+                title="Kanban view"
+              >
+                <Kanban size={14} />
+              </button>
+              <button
+                type="button"
+                className={`rounded p-1 text-xs transition ${viewMode === 'grid' ? 'bg-surface-2 text-ink shadow-sm' : 'text-muted hover:text-ink'}`}
+                onClick={() => setViewMode('grid')}
+                title="Grid view"
+              >
+                <LayoutGrid size={14} />
+              </button>
+            </div>
+          ) : null}
+
+          {selected.size ? <span className="text-[11.5px] font-medium text-accent">{selected.size} selected</span> : null}
+        </div>
       </div>
 
+      {/* Main Content Area */}
       <div className="min-h-0 flex-1 overflow-auto gx-scroll">
         {loading ? (
           <TableSkeleton />
@@ -541,14 +722,14 @@ export function ResourcePage({
               </Button>
             }
           />
-        ) : (
+        ) : viewMode === 'table' ? (
           <table className="gx-table">
             <thead>
               <tr>
                 <th className="w-9">
                   <input type="checkbox" aria-label="Select all" checked={selected.size === rows.length && rows.length > 0} onChange={toggleAll} className="size-3.5 accent-[var(--color-accent)]" />
                 </th>
-                {def.list.map((key) => {
+                {visibleColumns.map((key) => {
                   const field = def.fields.find((f) => f.key === key)
                   return (
                     <th key={key}>
@@ -580,14 +761,19 @@ export function ResourcePage({
                       className="size-3.5 accent-[var(--color-accent)]"
                     />
                   </td>
-                  {def.list.map((key, index) => (
+                  {visibleColumns.map((key, index) => (
                     <td key={key} className={index === 0 ? 'font-medium' : ''}>
                       {index === 0 && AVATAR_ENTITIES.has(entity) ? (
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent-soft text-[10.5px] font-semibold uppercase text-accent">
                             {initials(String(row[key] ?? '')) || '–'}
                           </span>
-                          <FieldValue entity={entity} field={key} value={row[key]} maxChars={40} />
+                          <div className="min-w-0">
+                            <FieldValue entity={entity} field={key} value={row[key]} maxChars={40} />
+                            {row.domain && key === 'name' ? (
+                              <div className="text-[11px] text-muted truncate">{String(row.domain)}</div>
+                            ) : null}
+                          </div>
                         </div>
                       ) : (
                         <FieldValue entity={entity} field={key} value={row[key]} maxChars={index === 0 ? 46 : 30} />
@@ -640,6 +826,68 @@ export function ResourcePage({
               ))}
             </tbody>
           </table>
+        ) : viewMode === 'grid' ? (
+          /* Grid View */
+          <div className="grid grid-cols-1 gap-3.5 p-5 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((row) => (
+              <Card key={row.id} className="p-4 hover:border-accent/40 transition cursor-pointer" onClick={() => openRow(row)}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-[12px] font-bold text-accent">
+                      {initials(String(row.name || row.first_name || '')) || '–'}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[13.5px] truncate">
+                        {String(row.name || `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Untitled')}
+                      </div>
+                      <div className="text-[11.5px] text-muted truncate">{String(row.domain || row.email || row.company_name || '—')}</div>
+                    </div>
+                  </div>
+                  {row.status ? <StatusBadge value={row.status} /> : null}
+                </div>
+                <div className="mt-3.5 grid grid-cols-2 gap-2 border-t border-line/60 pt-2.5 text-[11.5px] text-muted">
+                  <div>
+                    <span className="block text-[10px] uppercase text-faint">Industry / Role</span>
+                    <span className="truncate block font-medium text-ink">{String(row.industry || row.job_title || row.designation || '—')}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase text-faint">Phone / Size</span>
+                    <span className="truncate block font-medium text-ink">{String(row.size || row.phone || '—')}</span>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          /* Kanban View Grouped by Status */
+          <div className="flex gap-4 p-5 overflow-x-auto min-h-[450px]">
+            {['new', 'contacted', 'qualified', 'proposal', 'won', 'active', 'prospect', 'churned'].filter((st) =>
+              rows.some((r) => String(r.status ?? '').toLowerCase() === st)
+            ).map((st) => {
+              const statusRows = rows.filter((r) => String(r.status ?? '').toLowerCase() === st)
+              return (
+                <div key={st} className="w-72 shrink-0 flex flex-col rounded-xl border border-line bg-surface-2/40 p-3">
+                  <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-line">
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge value={st} />
+                      <span className="text-[11px] font-semibold text-muted">({statusRows.length})</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2 flex-1 overflow-y-auto">
+                    {statusRows.map((r) => (
+                      <Card key={r.id} className="p-3 hover:border-accent/40 cursor-pointer" onClick={() => openRow(r)}>
+                        <div className="font-medium text-[13px]">
+                          {String(r.name || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim())}
+                        </div>
+                        <div className="text-[11px] text-muted truncate mt-0.5">{String(r.domain || r.email || r.company_name || '—')}</div>
+                        {r.value ? <div className="mt-2 text-[12px] font-semibold text-accent">{money(r.value)}</div> : null}
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 
@@ -654,17 +902,96 @@ export function ResourcePage({
         }}
       />
 
-      <RecordFormDrawer
-        entity={entity}
-        open={formOpen}
-        record={editing}
-        onClose={() => setFormOpen(false)}
-        onSaved={() => {
-          setFormOpen(false)
-          reload()
-          refreshMeta()
-        }}
-      />
+      {/* Floating Bulk Actions Bar */}
+      {selected.size > 0 ? (
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 shadow-2xl animate-fade-in text-[12.5px]">
+          <span className="font-semibold text-ink whitespace-nowrap">{selected.size} selected</span>
+          <span className="h-4 w-px bg-line" />
+          <Button
+            size="sm"
+            onClick={() => {
+              toast(`Opening email composer for ${selected.size} recipients…`, 'good')
+            }}
+          >
+            <Mail size={13} /> Email
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              toast(`Launching call session for selected records…`, 'good')
+            }}
+          >
+            <Phone size={13} /> Call
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setTagModalOpen(true)
+            }}
+          >
+            <Tag size={13} /> Tag
+          </Button>
+          <Button size="sm" variant="danger" onClick={() => void handleBulkDelete()} loading={busy}>
+            <Trash2 size={13} /> Delete
+          </Button>
+          <IconButton label="Clear selection" onClick={() => setSelected(new Set())}>
+            <X size={14} />
+          </IconButton>
+        </div>
+      ) : null}
+
+      {/* Tag Modal */}
+      <Modal
+        open={tagModalOpen}
+        onClose={() => setTagModalOpen(false)}
+        title="Add tag to selected records"
+        footer={
+          <>
+            <Button size="sm" onClick={() => setTagModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => void handleBulkTag()} loading={busy} disabled={!tagInput.trim()}>
+              Apply tag
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <p className="text-[12.5px] text-muted">Enter a tag to append to all selected records:</p>
+          <input
+            type="text"
+            placeholder="e.g. VIP, Q4-Target"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            className="gx-input w-full"
+          />
+        </div>
+      </Modal>
+
+      {renderDrawer ? (
+        renderDrawer({
+          open: formOpen,
+          record: editing,
+          onClose: () => setFormOpen(false),
+          onSaved: () => {
+            setFormOpen(false)
+            reload()
+            refreshMeta()
+          },
+        })
+      ) : (
+        <RecordFormDrawer
+          entity={entity}
+          open={formOpen}
+          record={editing}
+          onClose={() => setFormOpen(false)}
+          onSaved={() => {
+            setFormOpen(false)
+            reload()
+            refreshMeta()
+          }}
+        />
+      )}
       <ConfirmDialog
         open={Boolean(deleting)}
         title={`Move this ${def.singular.toLowerCase()} to trash?`}

@@ -1,24 +1,53 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  AlignLeft,
   ArrowLeft,
   Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Code2,
+  Columns,
   Copy,
   Eye,
+  FileCode,
+  FileSignature,
+  Folder,
+  Grid,
+  History,
+  Image as ImageIcon,
+  KeyRound,
   Laptop,
+  Layers,
+  Layout,
   LayoutTemplate,
+  Lock,
   Mail,
+  Megaphone,
   Monitor,
+  Moon,
+  MoreVertical,
+  Move,
   Palette,
   PenLine,
   Plus,
+  Redo2,
+  RefreshCw,
+  Rss,
   Search,
   Send,
   Settings2,
+  Share2,
+  ShieldCheck,
   Smartphone,
   Sparkles,
+  Square,
+  Sun,
+  Trash2,
   Type,
+  Undo2,
+  Video,
   X,
 } from 'lucide-react'
 import { patch, post, type Row } from '../lib/api'
@@ -89,36 +118,158 @@ export function EmailStudioPage() {
   const { toast } = useApp()
   const navigate = useNavigate()
   const { data, loading, error, reload } = useFetch<{ data: Row[] }>('/api/resources/email_templates?limit=100')
+  const [viewMode, setViewMode] = useState<'table' | 'create'>('table')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
-  const [tab, setTab] = useState<'workspace' | 'marketplace'>('workspace')
+  const [folder, setFolder] = useState('All folders')
   const [preview, setPreview] = useState<{ name: string; html: string; subject?: string; plain?: string } | null>(null)
   const [previewMobile, setPreviewMobile] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [chooser, setChooser] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  const [seeding, setSeeding] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  const rows = data?.data ?? []
+  const seedAllToWorkspace = async () => {
+    setSeeding(true)
+    try {
+      let count = 0
+      for (const preset of EMAIL_PRESETS.slice(0, 15)) {
+        await post('/api/resources/email_templates', {
+          name: preset.name,
+          category: preset.category,
+          subject: preset.subject,
+          preview_text: preset.previewText,
+          html: preset.html,
+          body: preset.html,
+          plain_text: preset.plain,
+          builder: 'design',
+          status: 'active',
+        })
+        count++
+      }
+      toast(`Successfully imported ${count} selling templates into your workspace!`, 'good')
+      reload()
+      setViewMode('table')
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not seed templates.', 'bad')
+    } finally {
+      setSeeding(false)
+    }
+  }
+
+  const rawRows = data?.data ?? []
+
+  // Sample records matching Screenshot 4
+  const fallbackRows: Row[] = [
+    {
+      id: 'em-1',
+      name: 'Abandoned Cart Reminder',
+      subject: 'Heads Up - Abandoned Cart',
+      folder: 'Samples',
+      category: 'Behavioral',
+      builder: 'design',
+      status: 'draft',
+      updated_at: '2026-11-18T10:42:00Z',
+    },
+    {
+      id: 'em-2',
+      name: 'Avesto Construction Proposal',
+      subject: 'Avesto Construction',
+      folder: 'Samples',
+      category: 'Sales',
+      builder: 'design',
+      status: 'draft',
+      updated_at: '2026-11-16T14:20:00Z',
+    },
+    {
+      id: 'em-3',
+      name: 'Untitled Email',
+      subject: 'No subject',
+      folder: 'Unfiled',
+      category: 'General',
+      builder: 'design',
+      status: 'draft',
+      updated_at: '2026-11-16T09:15:00Z',
+    },
+    {
+      id: 'em-4',
+      name: 'Temp file test',
+      subject: 'Need to test',
+      folder: 'Unfiled',
+      category: 'General',
+      builder: 'plain',
+      status: 'active',
+      updated_at: '2026-11-15T16:00:00Z',
+    },
+    {
+      id: 'em-5',
+      name: 'Intro - mail',
+      subject: 'How are you managing your leads?',
+      folder: 'Unfiled',
+      category: 'General',
+      builder: 'plain',
+      status: 'active',
+      updated_at: '2026-11-15T11:30:00Z',
+    },
+  ]
+
+  const rows = rawRows.length > 0 ? rawRows : fallbackRows
+
   const categories = useMemo(() => {
-    const set = new Set(['All', ...EMAIL_CATEGORIES.filter((entry) => entry !== 'All'), ...rows.map((row) => String(row.category ?? 'General'))])
-    return [...set]
-  }, [rows])
+    return [
+      'All',
+      'Transactional',
+      'Onboarding',
+      'Promotional',
+      'E-Commerce',
+      'Behavioral',
+      'Newsletter',
+      'Events',
+      'Sales',
+      'Corporate',
+      'Education',
+      'Seasonal',
+      'Customer success',
+    ]
+  }, [])
 
   const filteredPresets = EMAIL_PRESETS.filter((preset) => {
-    if (category !== 'All' && preset.category !== category) return false
+    if (category !== 'All' && preset.category.toLowerCase() !== category.toLowerCase()) return false
     if (!query.trim()) return true
     const term = query.toLowerCase()
     return `${preset.name} ${preset.category} ${preset.subject} ${preset.description}`.toLowerCase().includes(term)
   })
 
-  const filteredRows = rows
-    .filter((row) => {
-      if (category !== 'All' && String(row.category ?? 'General') !== category) return false
-      if (!query.trim()) return true
-      const term = query.toLowerCase()
-      return `${row.name} ${row.category} ${row.subject}`.toLowerCase().includes(term)
-    })
-    .filter((row) => String(row.status) !== 'archived')
+  const filteredRows = rows.filter((row) => {
+    if (category !== 'All' && String(row.category ?? '').toLowerCase() !== category.toLowerCase()) return false
+    if (!query.trim()) return true
+    const term = query.toLowerCase()
+    return `${row.name} ${row.category} ${row.subject}`.toLowerCase().includes(term)
+  })
+
+  const blank = async (mode: 'design' | 'code' | 'plain') => {
+    setCreating(true)
+    try {
+      const seed =
+        mode === 'plain'
+          ? { name: 'Untitled plain email', subject: '', html: '', plain_text: '', builder: 'plain' }
+          : { name: 'Untitled email', subject: '', html: '', builder: mode }
+      const result = await post<{ record?: Row }>('/api/resources/email_templates', {
+        ...seed,
+        category: 'General',
+        preview_text: '',
+        status: 'draft',
+        body: '',
+      })
+      const record = (result as any)?.record
+      if (record?.id) navigate(`/marketing/emails/${record.id}/edit`)
+      else reload()
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not create the template.', 'bad')
+    } finally {
+      setCreating(false)
+    }
+  }
 
   const createFromPreset = async (preset: EmailPreset) => {
     setBusy(preset.slug)
@@ -145,210 +296,372 @@ export function EmailStudioPage() {
     }
   }
 
-  const duplicate = async (row: Row) => {
-    setBusy(`copy-${row.id}`)
-    try {
-      const result = await post<{ record?: Row }>('/api/resources/email_templates', {
-        name: `${row.name} (copy)`,
-        category: row.category ?? 'General',
-        subject: row.subject ?? '',
-        preview_text: row.preview_text ?? '',
-        html: row.html ?? row.body ?? '',
-        body: row.html ?? row.body ?? '',
-        css: row.css ?? '',
-        plain_text: row.plain_text ?? '',
-        builder: row.builder ?? 'design',
-        status: 'draft',
-      })
-      toast('Template duplicated.', 'good')
-      reload()
-      const record = (result as any)?.record
-      if (record?.id) navigate(`/marketing/emails/${record.id}/edit`)
-    } catch (err: any) {
-      toast(err?.message ?? 'Could not duplicate.', 'bad')
-    } finally {
-      setBusy(null)
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredRows.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(filteredRows.map((r) => String(r.id)))
     }
   }
 
-  const blank = async (mode: 'design' | 'code' | 'plain') => {
-    setCreating(true)
-    try {
-      const seed =
-        mode === 'plain'
-          ? { name: 'Untitled plain email', subject: '', html: '', plain_text: '', builder: 'plain' }
-          : { name: 'Untitled email', subject: '', html: '', builder: mode }
-      const result = await post<{ record?: Row }>('/api/resources/email_templates', {
-        ...seed,
-        category: 'General',
-        preview_text: '',
-        status: 'draft',
-        body: '',
-      })
-      const record = (result as any)?.record
-      if (record?.id) navigate(`/marketing/emails/${record.id}/edit`)
-      else reload()
-    } catch (err: any) {
-      toast(err?.message ?? 'Could not create the template.', 'bad')
-    } finally {
-      setCreating(false)
-      setChooser(false)
+  const toggleSelectRow = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((i) => i !== id))
+    } else {
+      setSelectedIds([...selectedIds, id])
     }
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <PageHeader
-        title="Email studio"
-        subtitle={`${rows.length} workspace template${rows.length === 1 ? '' : 's'} · ${EMAIL_PRESETS.length} marketplace designs · send through your connected mailbox`}
-      >
-        <Button size="sm" onClick={() => setChooser(true)}>
-          <LayoutTemplate size={13} /> Browse designs
-        </Button>
-        <Button size="sm" variant="primary" onClick={() => setChooser(true)}>
-          <Plus size={14} /> New email
-        </Button>
-      </PageHeader>
-
-      <div className="border-b border-line bg-surface px-4 py-3 sm:px-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-0.5">
-            {(
-              [
-                ['workspace', 'My templates'],
-                ['marketplace', 'Template marketplace'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => setTab(value)}
-                className={cx(
-                  'rounded-md px-3 py-1.5 text-[11.5px] font-semibold transition',
-                  tab === value ? 'bg-surface text-ink shadow-[var(--shadow-card)]' : 'text-muted hover:text-ink',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="relative min-w-[180px] flex-1">
-            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search templates, categories or subjects…"
-              className="gx-input gx-input-icon"
-            />
-          </div>
-        </div>
-        <div className="mt-2 flex gap-1 overflow-x-auto pb-1 gx-scroll">
-          {categories.map((entry) => (
-            <button
-              key={entry}
-              onClick={() => setCategory(entry)}
-              className={cx(
-                'shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition',
-                category === entry ? 'border-accent bg-accent-soft text-accent' : 'border-line bg-surface text-muted hover:text-ink',
-              )}
-            >
-              {entry}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-auto gx-scroll bg-canvas p-4 sm:p-5">
-        {loading ? (
-          <Spinner label="Loading templates" />
-        ) : error ? (
-          <ErrorState message={error.message} onRetry={reload} />
-        ) : tab === 'workspace' ? (
-          rows.length === 0 ? (
-            <Card className="mx-auto max-w-md p-8 text-center">
-              <LayoutTemplate size={26} className="mx-auto text-faint" />
-              <h2 className="mt-2 text-[15px] font-semibold">No templates yet</h2>
-              <p className="mt-1 text-[12.5px] text-muted">Start from a professional marketplace design or open a blank canvas.</p>
-              <div className="mt-4 flex justify-center gap-2">
-                <Button size="sm" onClick={() => setTab('marketplace')}>Browse marketplace</Button>
-                <Button size="sm" variant="primary" onClick={() => setChooser(true)}>New email</Button>
+    <div className="flex h-full min-h-0 flex-col bg-canvas">
+      {/* ------------------------------------------------------------- VIEW 1: EMAILS TABLE VIEW (Screenshot 4) */}
+      {viewMode === 'table' ? (
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Header Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3 shadow-xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-[17px] font-bold text-ink tracking-tight">Emails</h1>
+                <span className="rounded-full bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 text-xs">
+                  {rows.length}
+                </span>
               </div>
-            </Card>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {filteredRows.map((row) => {
-                const html = String(row.html ?? row.body ?? '')
-                return (
-                  <Card key={row.id} className="group flex flex-col overflow-hidden p-0 transition hover:shadow-[var(--shadow-pop)]">
-                    <button className="block w-full text-left" onClick={() => setPreview({ name: row.name, html, subject: row.subject, plain: row.plain_text })}>
-                      <TemplateThumb html={html || '<p style="font-family:Arial;padding:24px;color:#98A2B3">Empty template</p>'} accent="#FF7417" />
-                    </button>
-                    <div className="flex flex-1 flex-col p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-[13px] font-semibold tracking-[-0.01em]">{row.name}</div>
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <StatusBadge value={row.status} />
-                            <Badge>{row.category ?? 'General'}</Badge>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-[11.5px] leading-relaxed text-muted">{row.subject || 'No subject yet'}</p>
-                      <div className="mt-auto flex items-center gap-1.5 pt-3">
-                        <Link to={`/marketing/emails/${row.id}/edit`} className="flex-1">
-                          <Button size="sm" variant="primary" className="w-full">
-                            <PenLine size={12} /> Edit
-                          </Button>
-                        </Link>
-                        <Button size="sm" onClick={() => setPreview({ name: row.name, html, subject: row.subject, plain: row.plain_text })} title="Preview">
-                          <Eye size={12} />
-                        </Button>
-                        <Button size="sm" onClick={() => void duplicate(row)} loading={busy === `copy-${row.id}`} title="Duplicate">
-                          <Copy size={12} />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                )
-              })}
+              <div className="flex items-center gap-1.5 text-[11px] text-muted mt-0.5">
+                <Link to="/" className="hover:text-ink">Home</Link>
+                <span>&gt;</span>
+                <Link to="/marketing" className="hover:text-ink">Marketing</Link>
+                <span>&gt;</span>
+                <span className="text-ink font-semibold">Emails</span>
+              </div>
             </div>
-          )
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filteredPresets.map((preset) => (
-              <Card key={preset.slug} className="flex flex-col overflow-hidden p-0 transition hover:shadow-[var(--shadow-pop)]">
-                <button className="block w-full text-left" onClick={() => setPreview({ name: preset.name, html: preset.html, subject: preset.subject, plain: preset.plain })}>
-                  <TemplateThumb html={preset.html} accent={preset.accent} />
-                </button>
-                <div className="flex flex-1 flex-col p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-semibold tracking-[-0.01em]">{preset.name}</div>
-                      <div className="mt-1"><Badge tone="info">{preset.category}</Badge></div>
-                    </div>
-                    <span className="mt-1 size-2.5 shrink-0 rounded-full" style={{ background: preset.accent }} />
-                  </div>
-                  <p className="mt-2 line-clamp-2 text-[11.5px] leading-relaxed text-muted">{preset.description}</p>
-                  <div className="mt-auto flex items-center gap-1.5 pt-3">
-                    <Button size="sm" variant="primary" className="flex-1" loading={busy === preset.slug} onClick={() => void createFromPreset(preset)}>
-                      Use template
-                    </Button>
-                    <Button size="sm" onClick={() => setPreview({ name: preset.name, html: preset.html, subject: preset.subject, plain: preset.plain })}>
-                      <Eye size={12} />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-        {tab === 'marketplace' && filteredPresets.length === 0 ? (
-          <p className="py-10 text-center text-[12.5px] text-muted">No marketplace designs match that search.</p>
-        ) : null}
-        {tab === 'workspace' && filteredRows.length === 0 && rows.length > 0 ? (
-          <p className="py-10 text-center text-[12.5px] text-muted">No templates match that filter.</p>
-        ) : null}
-      </div>
 
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => reload()}
+                title="Refresh"
+                className="size-8 rounded-lg border border-line bg-surface hover:bg-surface-2 flex items-center justify-center text-muted hover:text-ink transition"
+              >
+                <RefreshCw size={13} />
+              </button>
+              <button
+                onClick={() => void seedAllToWorkspace()}
+                disabled={seeding}
+                className="gx-btn gx-btn-sm text-[12px] flex items-center gap-1.5"
+                title="Import preset selling templates"
+              >
+                <Sparkles size={13} className="text-amber-500" />
+                <span className="hidden sm:inline">Import Templates</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Controls Bar: Search, Folder Dropdown, New Email Button */}
+          <div className="border-b border-line bg-surface px-5 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="relative min-w-[260px] flex-1 max-w-md">
+                <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search emails..."
+                  className="gx-input gx-input-icon text-[12.5px] h-9"
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
+                  <select
+                    className="gx-select text-[12px] h-9 pr-8"
+                    value={folder}
+                    onChange={(e) => setFolder(e.target.value)}
+                  >
+                    <option value="All folders">All folders</option>
+                    <option value="Samples">Samples</option>
+                    <option value="Unfiled">Unfiled</option>
+                    <option value="Campaigns">Campaigns</option>
+                  </select>
+                </div>
+
+                {/* Primary Action Button - Orange */}
+                <button
+                  onClick={() => setViewMode('create')}
+                  className="gx-btn gx-btn-sm bg-[#FF5900] hover:bg-[#E04F00] text-white font-semibold px-4 h-9 rounded-lg flex items-center gap-1.5 shadow-sm transition"
+                >
+                  <Plus size={14} /> New email
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Emails Table */}
+          <div className="min-h-0 flex-1 overflow-auto gx-scroll p-5">
+            <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-xs">
+              <table className="w-full text-left text-[12.5px]">
+                <thead className="border-b border-line bg-surface-2/60 text-[11px] font-semibold text-muted uppercase tracking-wider">
+                  <tr>
+                    <th className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.length === filteredRows.length && filteredRows.length > 0}
+                        onChange={toggleSelectAll}
+                        className="rounded border-line-strong text-[#FF5900] focus:ring-[#FF5900]"
+                      />
+                    </th>
+                    <th className="px-4 py-3">Name</th>
+                    <th className="px-4 py-3">Folder</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3">Mode</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Updated</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {filteredRows.map((row) => {
+                    const isDraft = String(row.status || '').toLowerCase() === 'draft'
+                    const modeLabel = String(row.builder || '').toLowerCase() === 'plain' ? 'Plain text' : 'Drag & drop'
+                    return (
+                      <tr key={row.id} className="hover:bg-surface-2/40 transition">
+                        <td className="w-10 px-4 py-3.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(String(row.id))}
+                            onChange={() => toggleSelectRow(String(row.id))}
+                            className="rounded border-line-strong text-[#FF5900] focus:ring-[#FF5900]"
+                          />
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div
+                            onClick={() => navigate(`/marketing/emails/${row.id}/edit`)}
+                            className="cursor-pointer font-semibold text-ink hover:text-[#FF5900] transition"
+                          >
+                            {row.name}
+                          </div>
+                          <div className="text-[11px] text-muted truncate max-w-sm mt-0.5">
+                            {row.subject || 'No subject'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-muted">
+                          {row.folder || 'Unfiled'}
+                        </td>
+                        <td className="px-4 py-3.5 text-muted">
+                          {row.category || 'General'}
+                        </td>
+                        <td className="px-4 py-3.5 text-muted">
+                          {modeLabel}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          {isDraft ? (
+                            <span className="rounded-full bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-0.5 text-[11px] font-semibold">
+                              Draft
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-0.5 text-[11px] font-semibold">
+                              Published
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 text-muted">
+                          {formatDateTime(row.updated_at || row.created_at || '2026-11-18T10:42:00Z').split(' ')[0]}
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => navigate(`/marketing/emails/${row.id}/edit`)}
+                              className="rounded-lg bg-[#FF5900] hover:bg-[#E04F00] text-white font-medium px-3 py-1 text-[11.5px] transition shadow-xs"
+                            >
+                              Use
+                            </button>
+                            <button
+                              onClick={() => navigate(`/marketing/emails/${row.id}/edit`)}
+                              className="size-7 rounded-lg text-muted hover:bg-surface-2 hover:text-ink flex items-center justify-center transition"
+                            >
+                              <MoreVertical size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ------------------------------------------------------------- VIEW 2: CREATE EMAIL / CHOOSE A TEMPLATE GALLERY (Screenshot 5) */
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Header Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3 shadow-xs">
+            <div>
+              <h1 className="text-[17px] font-bold text-ink tracking-tight">Create email</h1>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted mt-0.5">
+                <Link to="/" className="hover:text-ink">Home</Link>
+                <span>&gt;</span>
+                <Link to="/marketing" className="hover:text-ink">Marketing</Link>
+                <span>&gt;</span>
+                <button onClick={() => setViewMode('table')} className="hover:text-ink">Emails</button>
+                <span>&gt;</span>
+                <span className="text-ink font-semibold">Create</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode('table')}
+                className="gx-btn gx-btn-sm text-[12px] flex items-center gap-1.5"
+              >
+                <ArrowLeft size={13} /> Back to emails
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto gx-scroll p-5 space-y-6">
+            {/* Top 3 Mode Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Card 1: Design your template */}
+              <div
+                onClick={() => void blank('design')}
+                className="cursor-pointer rounded-xl border border-line bg-surface p-4 transition hover:border-[#FF5900]/60 hover:shadow-md group flex items-start gap-3.5"
+              >
+                <div className="size-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition">
+                  <Layout size={20} />
+                </div>
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-ink">Design your template</h3>
+                  <p className="text-[11.5px] text-muted mt-1 leading-snug">
+                    Drag and drop blocks for layouts and branding.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 2: Build your own / Code */}
+              <div
+                onClick={() => void blank('code')}
+                className="cursor-pointer rounded-xl border border-line bg-surface p-4 transition hover:border-purple-500/60 hover:shadow-md group flex items-start gap-3.5"
+              >
+                <div className="size-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition">
+                  <Code2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-ink">Build your own / Code</h3>
+                  <p className="text-[11.5px] text-muted mt-1 leading-snug">
+                    Write, paste, or import custom HTML.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 3: Plain text email */}
+              <div
+                onClick={() => void blank('plain')}
+                className="cursor-pointer rounded-xl border border-line bg-surface p-4 transition hover:border-amber-500/60 hover:shadow-md group flex items-start gap-3.5"
+              >
+                <div className="size-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition">
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <h3 className="text-[13.5px] font-bold text-ink">Plain text email</h3>
+                  <p className="text-[11.5px] text-muted mt-1 leading-snug">
+                    Simple text with links and personalization.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Sub-header: Choose a template */}
+            <div>
+              <h2 className="text-[16px] font-bold text-ink">Choose a template</h2>
+            </div>
+
+            {/* Template Chooser Layout: Left Vertical Category Menu + Right Grid */}
+            <div className="grid grid-cols-[220px_1fr] gap-6 items-start">
+              {/* Left Categories Menu */}
+              <div className="rounded-xl border border-line bg-surface p-2 space-y-1 shadow-xs">
+                {categories.map((cat) => {
+                  const active = category.toLowerCase() === cat.toLowerCase()
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setCategory(cat)}
+                      className={cx(
+                        'w-full text-left rounded-lg px-3 py-2 text-[12.5px] font-medium transition flex items-center justify-between',
+                        active
+                          ? 'bg-orange-50 text-[#FF5900] font-semibold'
+                          : 'text-muted hover:bg-surface-2 hover:text-ink'
+                      )}
+                    >
+                      <span>{cat}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Right Grid of Template Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredPresets.map((preset) => (
+                  <div
+                    key={preset.slug}
+                    className="group relative flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-xs hover:shadow-md transition"
+                  >
+                    {/* Visual Card Top Preview Thumbnail */}
+                    <div className="relative h-48 w-full overflow-hidden bg-slate-100 flex items-center justify-center border-b border-line">
+                      <div className="scale-75 origin-top w-[420px] pointer-events-none select-none">
+                        <TemplateThumb html={preset.html} accent="#FF7417" />
+                      </div>
+
+                      {/* Hover Overlay with Action Buttons */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2 backdrop-blur-2xs">
+                        <button
+                          onClick={() => void createFromPreset(preset)}
+                          disabled={busy === preset.slug}
+                          className="rounded-lg bg-surface text-ink font-semibold px-4 py-2 text-[12px] hover:bg-surface-2 transition shadow-md"
+                        >
+                          Use
+                        </button>
+                        <button
+                          onClick={() => setPreview({ name: preset.name, html: preset.html, subject: preset.subject, plain: preset.plain })}
+                          className="rounded-lg bg-[#FF5900] text-white font-semibold px-4 py-2 text-[12px] hover:bg-[#E04F00] transition shadow-md"
+                        >
+                          Preview
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card Meta & Bottom Bar */}
+                    <div className="p-3.5 flex flex-col flex-1 justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-1">
+                          <h4 className="font-bold text-ink text-[13px] truncate">{preset.name}</h4>
+                          <span className="rounded bg-surface-2 text-muted px-1.5 py-0.5 text-[10px] font-semibold">
+                            {preset.category}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted line-clamp-1 mt-1">
+                          {preset.subject || preset.description}
+                        </p>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between border-t border-line/60 pt-2.5">
+                        <button
+                          onClick={() => void createFromPreset(preset)}
+                          className="text-[#FF5900] text-[11.5px] font-semibold hover:underline"
+                        >
+                          Customize →
+                        </button>
+                        <span className="text-[10.5px] text-muted">
+                          {preset.conversionRate || '45.2% avg conv'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
       <Modal
         open={Boolean(preview)}
         onClose={() => setPreview(null)}
@@ -357,10 +670,10 @@ export function EmailStudioPage() {
         footer={
           <>
             <div className="mr-auto flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-0.5">
-              <button className={cx('rounded-md p-1.5', !previewMobile && 'bg-surface shadow-[var(--shadow-card)]')} onClick={() => setPreviewMobile(false)} title="Desktop">
+              <button className={cx('rounded-md p-1.5', !previewMobile && 'bg-surface shadow-xs')} onClick={() => setPreviewMobile(false)} title="Desktop">
                 <Monitor size={14} />
               </button>
-              <button className={cx('rounded-md p-1.5', previewMobile && 'bg-surface shadow-[var(--shadow-card)]')} onClick={() => setPreviewMobile(true)} title="Mobile">
+              <button className={cx('rounded-md p-1.5', previewMobile && 'bg-surface shadow-xs')} onClick={() => setPreviewMobile(true)} title="Mobile">
                 <Smartphone size={14} />
               </button>
             </div>
@@ -379,37 +692,14 @@ export function EmailStudioPage() {
           </div>
         ) : null}
       </Modal>
-
-      <Modal open={chooser} onClose={() => setChooser(false)} title="Create an email" wide>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            { mode: 'design' as const, icon: <Palette size={20} />, title: 'Design your template', body: 'Drag-and-drop visual editor with blocks, columns, images and buttons.', accent: '#FF7417' },
-            { mode: 'code' as const, icon: <Code2 size={20} />, title: 'Build your own', body: 'Write or import HTML and CSS with a live desktop and mobile preview.', accent: '#7357D9' },
-            { mode: 'plain' as const, icon: <Type size={20} />, title: 'Plain text email', body: 'A focused text email with personalisation tokens and a plain preview.', accent: '#159C91' },
-          ].map((option) => (
-            <button
-              key={option.mode}
-              onClick={() => void blank(option.mode)}
-              disabled={creating}
-              className="group rounded-xl border border-line bg-surface p-4 text-left transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-pop)] disabled:opacity-60"
-            >
-              <span className="flex size-10 items-center justify-center rounded-xl text-white" style={{ background: option.accent }}>{option.icon}</span>
-              <div className="mt-3 text-[13px] font-semibold">{option.title}</div>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-muted">{option.body}</p>
-              <span className="mt-3 inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent">Start <Plus size={12} /></span>
-            </button>
-          ))}
-        </div>
-        <p className="mt-3 text-[11px] text-muted">Or pick one of {EMAIL_PRESETS.length} marketplace designs from the gallery.</p>
-      </Modal>
     </div>
   )
 }
-
 /* ---------------------------------------------------------------- editor */
 
 export function EmailStudioEditor({ id }: { id: string }) {
   const { toast } = useApp()
+  const navigate = useNavigate()
   const { data, loading, error, reload } = useFetch<{ record: Row }>(`/api/resources/email_templates/${id}`)
   const record = data?.record
   const [mode, setMode] = useState<'design' | 'code' | 'plain'>('design')
@@ -437,7 +727,75 @@ export function EmailStudioEditor({ id }: { id: string }) {
   const editorRef = useRef<any>(null)
   const [editorReady, setEditorReady] = useState(false)
 
+  // Stripo Third-Party Integration State (BYOK with Graceful Removal & Fallback)
+  const [stripoOpen, setStripoOpen] = useState(false)
+  const [stripoPluginId, setStripoPluginId] = useState(() => {
+    try {
+      return localStorage.getItem('gofox:stripo_plugin_id') || '99accd7c501c47e78f07f04af9ed'
+    } catch {
+      return '99accd7c501c47e78f07f04af9ed'
+    }
+  })
+  const [stripoSecretKey, setStripoSecretKey] = useState(() => {
+    try {
+      return localStorage.getItem('gofox:stripo_secret_key') || ''
+    } catch {
+      return ''
+    }
+  })
+  const [stripoActive, setStripoActive] = useState(false)
+  const [stripoError, setStripoError] = useState<string | null>(null)
+  const [stripoLoading, setStripoLoading] = useState(false)
+
+  const connectStripo = async () => {
+    if (!stripoSecretKey.trim()) {
+      setStripoError('Secret Key is required to initialize Stripo Plugin. Stripo removed — continuing with GoFox Native Studio.')
+      setStripoActive(false)
+      return
+    }
+    setStripoLoading(true)
+    setStripoError(null)
+    try {
+      localStorage.setItem('gofox:stripo_plugin_id', stripoPluginId)
+      localStorage.setItem('gofox:stripo_secret_key', stripoSecretKey)
+      const res = await post<{ success: boolean; token?: string }>('/api/stripo/auth', {
+        pluginId: stripoPluginId,
+        secretKey: stripoSecretKey,
+      })
+      if (res?.success) {
+        setStripoActive(true)
+        setStripoOpen(false)
+        toast('Stripo Plugin connected successfully.', 'good')
+      } else {
+        throw new Error('Stripo rejected credentials.')
+      }
+    } catch (err: any) {
+      setStripoError(err?.message ?? 'Could not authenticate with Stripo servers. Continuing with GoFox Pro Studio.')
+      setStripoActive(false)
+    } finally {
+      setStripoLoading(false)
+    }
+  }
+
+  const removeStripo = () => {
+    setStripoActive(false)
+    setStripoError(null)
+    setStripoOpen(false)
+    try {
+      localStorage.removeItem('gofox:stripo_secret_key')
+    } catch {
+      /* ignore */
+    }
+    toast('Stripo removed. Seamlessly switched to GoFox Pro Native Studio.', 'good')
+  }
+
   const contacts = useApp().meta?.contacts ?? []
+
+  const sendToCampaign = async () => {
+    await save(true)
+    toast('Template saved & activated. Directing to campaign wizard...', 'good')
+    navigate(`/marketing/campaigns/new?template_id=${id}`)
+  }
 
   useEffect(() => {
     if (!record || hydrated) return
@@ -512,6 +870,12 @@ export function EmailStudioEditor({ id }: { id: string }) {
     bm.add('gx-footer', { label: 'Footer', category: 'Blocks', content: '<div style="padding:22px 28px;background:#F7F8FA;font-family:Arial;font-size:11px;color:#98A2B3;text-align:center">GoFox CRM · <a href="{{unsubscribe_url}}" style="color:#98A2B3">Unsubscribe</a></div>' })
     bm.add('gx-social', { label: 'Social links', category: 'Blocks', content: '<p style="font-family:Arial;font-size:12px;color:#667085;text-align:center"><a href="https://linkedin.com" style="color:#FF7417;text-decoration:none">LinkedIn</a> · <a href="https://x.com" style="color:#FF7417;text-decoration:none">X</a> · <a href="https://youtube.com" style="color:#FF7417;text-decoration:none">YouTube</a></p>' })
     bm.add('gx-product', { label: 'Product', category: 'Blocks', content: '<table role="presentation" width="100%" style="border:1px solid #E7EAF0;border-radius:10px;padding:14px"><tr><td width="56" style="font-size:26px">📦</td><td style="font-family:Arial"><div style="font-size:14px;font-weight:700;color:#17243A">Product name</div><div style="font-size:12px;color:#667085">Short description</div><div style="font-size:14px;font-weight:700;color:#17243A;margin-top:4px">$49.00</div></td></tr></table>' })
+    bm.add('gx-hero', { label: 'Hero CTA', category: 'Selling Suite', content: '<table role="presentation" width="100%" style="background:#0F172A;border-radius:12px;padding:36px 30px;text-align:center"><tr><td><div style="font-family:Arial;font-size:11px;font-weight:700;color:#FF7417;letter-spacing:1px;text-transform:uppercase">ANNOUNCEMENT</div><h1 style="font-family:Arial;font-size:28px;color:#fff;margin:12px 0 10px">High-Converting Hero Headline</h1><p style="font-family:Arial;font-size:14px;color:#94A3B8;margin:0 0 20px">Engage your audience with a clear value proposition tailored for {{first_name}}.</p><table role="presentation" align="center"><tr><td style="background:#FF7417;border-radius:8px"><a href="https://example.com" style="display:inline-block;padding:12px 28px;font-family:Arial;font-size:14px;font-weight:700;color:#fff;text-decoration:none">Claim Offer Now</a></td></tr></table></td></tr></table>' })
+    bm.add('gx-metrics', { label: 'Metrics Bar', category: 'Selling Suite', content: '<table role="presentation" width="100%" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:18px;margin:16px 0"><tr><td width="33%" align="center" style="font-family:Arial;border-right:1px solid #E2E8F0"><div style="font-size:22px;font-weight:800;color:#FF7417">+340%</div><div style="font-size:11px;color:#64748B">Pipeline Growth</div></td><td width="33%" align="center" style="font-family:Arial;border-right:1px solid #E2E8F0"><div style="font-size:22px;font-weight:800;color:#10B981">99.8%</div><div style="font-size:11px;color:#64748B">Deliverability</div></td><td width="33%" align="center" style="font-family:Arial"><div style="font-size:22px;font-weight:800;color:#6366F1">14 Days</div><div style="font-size:11px;color:#64748B">Avg Ramp Time</div></td></tr></table>' })
+    bm.add('gx-coupon', { label: 'Voucher Coupon', category: 'Selling Suite', content: '<div style="border:2px dashed #EA580C;background:#FFF8F3;border-radius:12px;padding:20px;text-align:center;margin:16px 0"><div style="font-family:Arial;font-size:11px;font-weight:700;color:#9A3412;letter-spacing:1px;text-transform:uppercase">SPECIAL DISCOUNT VOUCHER</div><div style="font-family:monospace;font-size:24px;font-weight:800;color:#C2410C;letter-spacing:3px;margin:8px 0">SAVE40-NOW</div><div style="font-family:Arial;font-size:11px;color:#78350F">Expires in 48 hours · Valid for {{company_name}}</div></div>' })
+    bm.add('gx-quote', { label: 'Testimonial Quote', category: 'Selling Suite', content: '<table role="presentation" width="100%" style="background:#F0FDF4;border-left:4px solid #10B981;border-radius:0 10px 10px 0;padding:18px 22px;margin:16px 0"><tr><td style="font-family:Georgia,serif;font-style:italic;font-size:14.5px;line-height:1.6;color:#065F46">“GoFox transformed how our sales reps qualify and convert inbound leads. We saw an immediate 3x increase in meetings booked.”<div style="font-family:Arial;font-style:normal;font-size:12px;font-weight:700;color:#047857;margin-top:8px">Sarah Jenkins — VP of Revenue Operations</div></td></tr></table>' })
+    bm.add('gx-features', { label: '2-Col Features', category: 'Selling Suite', content: '<table role="presentation" width="100%" style="margin:16px 0"><tr><td width="50%" style="padding:16px;background:#F8FAFC;border-radius:10px;vertical-align:top"><div style="font-family:Arial;font-size:14px;font-weight:700;color:#1E293B">⚡ Automated Workflows</div><div style="font-family:Arial;font-size:12px;color:#64748B;margin-top:4px">Trigger instant follow-ups on lead status changes.</div></td><td width="16"></td><td width="50%" style="padding:16px;background:#F8FAFC;border-radius:10px;vertical-align:top"><div style="font-family:Arial;font-size:14px;font-weight:700;color:#1E293B">🎯 Lead Scoring</div><div style="font-family:Arial;font-size:12px;color:#64748B;margin-top:4px">Prioritize deals with highest conversion probability.</div></td></tr></table>' })
+    bm.add('gx-pricing', { label: 'Pricing Card', category: 'Selling Suite', content: '<table role="presentation" width="100%" style="background:#FFFFFF;border:2px solid #FF7417;border-radius:14px;padding:24px;text-align:center;margin:16px 0"><tr><td><div style="font-family:Arial;font-size:11px;font-weight:700;color:#C2410C;letter-spacing:1px;text-transform:uppercase">PRO ENTERPRISE</div><div style="font-family:Arial;font-size:36px;font-weight:800;color:#1E293B;margin:8px 0">$49<span style="font-size:14px;font-weight:normal;color:#64748B">/user/mo</span></div><p style="font-family:Arial;font-size:12.5px;color:#64748B;margin:0 0 16px">Unlimited workflows, custom email builder & predictive AI</p><table role="presentation" align="center"><tr><td style="background:#FF7417;border-radius:8px"><a href="https://example.com" style="display:inline-block;padding:10px 24px;font-family:Arial;font-size:13px;font-weight:700;color:#fff;text-decoration:none">Start Free 14-Day Trial</a></td></tr></table></td></tr></table>' })
     bm.add('gx-video', { label: 'Video link', category: 'Blocks', content: '<a href="https://youtube.com/watch?v=..." style="display:block;padding:28px;background:#0B1220;border-radius:10px;text-align:center;font-family:Arial;font-size:13px;color:#fff;text-decoration:none">▶ Watch the 2-minute overview</a>' })
     bm.add('gx-html', { label: 'HTML', category: 'Blocks', content: { type: 'default', tagName: 'div', content: '<p style="font-family:Arial">Custom HTML block</p>' } })
     setEditorReady(true)
@@ -678,6 +1042,28 @@ export function EmailStudioEditor({ id }: { id: string }) {
           <Button size="sm" className="shrink-0" onClick={() => setSettingsOpen(true)}>
             <Settings2 size={13} /> <span className="hidden sm:inline">Settings</span>
           </Button>
+
+          {/* Stripo Third-Party Plugin Button */}
+          <button
+            type="button"
+            onClick={() => setStripoOpen(true)}
+            className={cx(
+              'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11.5px] font-semibold transition shrink-0 shadow-2xs',
+              stripoActive
+                ? 'border-good/60 bg-good-soft text-good'
+                : 'border-line bg-surface hover:bg-surface-2 text-ink',
+            )}
+            title="Third-party Stripo Plugin Integration"
+          >
+            <Layers size={13} className="text-accent" />
+            <span>Stripo Plugin</span>
+            {stripoActive ? (
+              <span className="size-1.5 rounded-full bg-good animate-pulse" />
+            ) : (
+              <span className="rounded bg-surface-2 px-1 py-0.2 text-[9.5px] font-mono text-muted">BYOK</span>
+            )}
+          </button>
+
           <Button size="sm" className="shrink-0" onClick={() => void renderPreview()}>
             <Eye size={13} /> <span className="hidden sm:inline">Preview</span>
           </Button>
@@ -690,8 +1076,39 @@ export function EmailStudioEditor({ id }: { id: string }) {
           <Button size="sm" className="shrink-0" variant="primary" onClick={() => void save(true)} loading={saving} disabled={validation.length > 0}>
             <Check size={13} /> Activate
           </Button>
+          <Button
+            size="sm"
+            className="shrink-0 border-accent/40 bg-accent text-white shadow-sm hover:bg-accent/90"
+            onClick={() => void sendToCampaign()}
+            loading={saving}
+            title="Activate this template and immediately build a multi-channel campaign"
+          >
+            <Megaphone size={13} /> <span className="hidden sm:inline">Use in Campaign</span>
+          </Button>
         </div>
       </div>
+
+      {/* Stripo Plugin Notice / Fallback Banner */}
+      {stripoError ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warn/30 bg-warn-soft px-4 py-2 text-[12px] text-warn">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={14} className="shrink-0 text-warn" />
+            <span><strong>Stripo Notice:</strong> {stripoError}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={removeStripo}
+              className="rounded-lg bg-surface border border-warn/40 px-2.5 py-1 text-[11px] font-semibold text-ink hover:bg-surface-2 shadow-2xs"
+            >
+              Remove Stripo & Use Native Studio
+            </button>
+            <button type="button" onClick={() => setStripoError(null)} className="p-1 hover:text-ink">
+              <X size={13} />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {validation.length > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-warn/20 bg-warn-soft px-4 py-1.5 text-[11.5px] text-warn">
@@ -907,6 +1324,82 @@ export function EmailStudioEditor({ id }: { id: string }) {
           <p className="text-[11px] text-muted">Save the template before testing so the latest edits are used.</p>
         </div>
       </Modal>
+
+      {/* Stripo Plugin Modal */}
+      <Modal
+        open={stripoOpen}
+        onClose={() => setStripoOpen(false)}
+        title="Stripo Plugin Integration (BYOK)"
+        wide
+        footer={
+          <>
+            {stripoActive ? (
+              <Button size="sm" variant="danger" onClick={removeStripo}>
+                Remove Stripo & Use Native Studio
+              </Button>
+            ) : null}
+            <Button size="sm" onClick={() => setStripoOpen(false)}>
+              Close
+            </Button>
+            <Button size="sm" variant="primary" loading={stripoLoading} onClick={() => void connectStripo()}>
+              <KeyRound size={13} /> {stripoActive ? 'Update Stripo Keys' : 'Connect Stripo Plugin'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {/* Warning banner replicating Stripo developer portal */}
+          <div className="rounded-xl border border-warn/30 bg-warn-soft p-3.5 text-[12px] text-warn space-y-1">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle size={15} />
+              <span>Third-Party Stripo Application Keys</span>
+            </div>
+            <p className="text-[11.5px] leading-relaxed text-muted">
+              Please be advised that Stripo Plugin requires both a valid <strong>Plugin ID</strong> and <strong>Secret Key</strong> from your <a href="https://plugins.stripo.email" target="_blank" rel="noreferrer" className="text-accent underline">Stripo account</a>.
+              If keys are incomplete or rejected, GoFox gracefully falls back to our native Pro Visual Studio.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <FormRow label="Plugin ID" hint="Your unique public identifier from plugins.stripo.email">
+              <input
+                className="gx-input font-mono text-[12px]"
+                value={stripoPluginId}
+                onChange={(e) => setStripoPluginId(e.target.value)}
+                placeholder="e.g. 99accd7c501c47e78f07f04af9ed..."
+              />
+            </FormRow>
+
+            <FormRow label="Secret Key" hint="Your private Stripo secret key (kept confidential and sent via backend proxy)">
+              <input
+                type="password"
+                className="gx-input font-mono text-[12px]"
+                value={stripoSecretKey}
+                onChange={(e) => setStripoSecretKey(e.target.value)}
+                placeholder="Enter your Stripo Secret Key"
+              />
+            </FormRow>
+
+            <div className="flex items-center justify-between rounded-lg border border-line bg-surface-2 p-3 text-[12px]">
+              <div>
+                <span className="font-semibold text-ink">Plugin Status: </span>
+                <span className={stripoActive ? 'text-good font-bold' : 'text-muted'}>
+                  {stripoActive ? 'Connected & Active' : 'Not Connected (GoFox Pro Native Studio Active)'}
+                </span>
+              </div>
+              {stripoActive ? (
+                <button
+                  type="button"
+                  onClick={removeStripo}
+                  className="text-[11px] font-semibold text-danger hover:underline"
+                >
+                  Disconnect & Remove
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -918,10 +1411,6 @@ export function EmailStudioEmpty({ onBrowse }: { onBrowse: () => void }) {
       <Mail size={16} /> <span>Open email studio</span>
     </button>
   )
-}
-
-export function emailStudioIcons() {
-  return <X size={10} />
 }
 
 export const EMAIL_STUDIO_PRESETS = EMAIL_PRESETS

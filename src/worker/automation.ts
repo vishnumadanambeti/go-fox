@@ -35,6 +35,11 @@ const ACTIONS = new Set([
   'create_ticket',
   'send_email',
   'assign_owner',
+  'send_sms',
+  'webhook',
+  'create_deal',
+  'update_deal',
+  'remove_contact',
 ])
 
 function getPath(record: Record<string, unknown>, path: string): unknown {
@@ -583,10 +588,48 @@ async function runAction(
       }
     }
     case 'create_deal': {
-      const stage = await env.DB.prepare('SELECT id, pipeline_id FROM stages WHERE org_id = ? ORDER BY position LIMIT 1')
+      let stage = await env.DB.prepare('SELECT id, pipeline_id FROM stages WHERE org_id = ? ORDER BY position LIMIT 1')
         .bind(orgId)
         .first<{ id: string; pipeline_id: string }>()
-      if (!stage) return { status: 'failed', message: 'No pipeline stage exists to place the deal in' }
+      if (!stage) {
+        // Auto-provision standard sales pipeline and stages for this org
+        let pipeline = await env.DB.prepare('SELECT id FROM pipelines WHERE org_id = ? LIMIT 1')
+          .bind(orgId)
+          .first<{ id: string }>()
+        if (!pipeline) {
+          const pipelineId = uid()
+          await insertRow(env, 'pipelines', {
+            id: pipelineId,
+            org_id: orgId,
+            name: 'Sales Pipeline',
+            is_default: 1,
+            created_at: nowIso(),
+          })
+          pipeline = { id: pipelineId }
+        }
+        const stageDefs = [
+          ['Qualification', 10],
+          ['Discovery', 25],
+          ['Proposal', 55],
+          ['Negotiation', 75],
+          ['Closed Won', 100],
+        ] as const
+        let firstStageId = ''
+        for (let i = 0; i < stageDefs.length; i++) {
+          const sId = uid()
+          if (i === 0) firstStageId = sId
+          await insertRow(env, 'stages', {
+            id: sId,
+            org_id: orgId,
+            pipeline_id: pipeline.id,
+            name: stageDefs[i][0],
+            position: i,
+            probability: stageDefs[i][1],
+            created_at: nowIso(),
+          })
+        }
+        stage = { id: firstStageId, pipeline_id: pipeline.id }
+      }
       const dealId = uid()
       await insertRow(env, 'deals', {
         id: dealId,

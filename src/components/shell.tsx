@@ -4,7 +4,6 @@ import {
   Bell,
   Clock,
   BookOpen,
-  Bot,
   Building2,
   Calendar,
   ChevronDown,
@@ -60,36 +59,38 @@ import { Link, useNavigate, usePath } from '../lib/router'
 import { useApp, useFetch, type Me } from '../lib/app-context'
 import { get, patch, post, query, type Row } from '../lib/api'
 import { initials, timeAgo, titleCase } from '../lib/format'
-import { Avatar, Badge, Button, Card, Drawer, Dropdown, IconButton, MenuItem, Modal, StatusBadge, cx } from './ui'
+import { LANGUAGES } from '../lib/i18n'
+import { Avatar, Badge, Card, Dropdown, IconButton, MenuItem, Modal, StatusBadge, cx } from './ui'
 import { RecordFormDrawer } from './resource'
 
 type NavItem = { label: string; to: string; icon: ReactNode; badge?: string }
-type NavGroup = { title: string; items: NavItem[] }
+type NavGroup = { title: string; expandable?: boolean; items: NavItem[] }
 
 const NAV: NavGroup[] = [
   {
     title: 'Core',
+    expandable: false,
     items: [
-      { label: 'Home', to: '/', icon: <Home size={15} /> },
-      { label: 'Companies', to: '/companies', icon: <Building2 size={15} /> },
-      { label: 'Leads', to: '/leads', icon: <Target size={15} /> },
-      { label: 'Contacts', to: '/contacts', icon: <Users size={15} /> },
-      { label: 'Lists', to: '/lists', icon: <List size={15} /> },
+      { label: 'Home', to: '/', icon: <Home size={16} /> },
+      { label: 'Companies', to: '/companies', icon: <Building2 size={16} /> },
+      { label: 'Leads', to: '/leads', icon: <Target size={16} /> },
+      { label: 'Contacts', to: '/contacts', icon: <Users size={16} /> },
+      { label: 'Lists', to: '/lists', icon: <List size={16} /> },
     ],
   },
   {
     title: 'Marketing',
+    expandable: true,
     items: [
       { label: 'Dashboard', to: '/marketing', icon: <Gauge size={15} /> },
       { label: 'Forms', to: '/marketing/forms', icon: <Layers size={15} /> },
       { label: 'Landing Pages', to: '/marketing/landing-pages', icon: <LayoutDashboard size={15} /> },
-      { label: 'Template Library', to: '/marketing/templates', icon: <Layers size={15} /> },
       { label: 'Email Templates', to: '/marketing/emails', icon: <Mail size={15} /> },
       { label: 'Campaigns', to: '/marketing/campaigns', icon: <Megaphone size={15} /> },
       { label: 'Email Sequences', to: '/marketing/sequences', icon: <Send size={15} /> },
       { label: 'WhatsApp', to: '/marketing/whatsapp', icon: <MessageCircle size={15} /> },
-      { label: 'Social Posts', to: '/marketing/social', icon: <Share2 size={15} /> },
-      { label: 'Social Ads', to: '/marketing/ads', icon: <PieChart size={15} /> },
+      { label: 'Social Media Posts', to: '/marketing/social', icon: <Share2 size={15} /> },
+      { label: 'Social Media Ads', to: '/marketing/ads', icon: <PieChart size={15} /> },
       { label: 'Content Hub', to: '/marketing/content', icon: <Library size={15} /> },
       { label: 'Automations', to: '/marketing/automations', icon: <Sparkles size={15} /> },
       { label: 'Workflows', to: '/marketing/workflows', icon: <Workflow size={15} /> },
@@ -101,6 +102,7 @@ const NAV: NavGroup[] = [
   },
   {
     title: 'Sales',
+    expandable: true,
     items: [
       { label: 'Dashboard', to: '/sales', icon: <Gauge size={15} /> },
       { label: 'Deals', to: '/sales/deals', icon: <Handshake size={15} /> },
@@ -116,6 +118,7 @@ const NAV: NavGroup[] = [
   },
   {
     title: 'Support',
+    expandable: true,
     items: [
       { label: 'Dashboard', to: '/support', icon: <Gauge size={15} /> },
       { label: 'Tickets', to: '/support/tickets', icon: <Ticket size={15} /> },
@@ -128,17 +131,22 @@ const NAV: NavGroup[] = [
   },
   {
     title: 'Reports',
+    expandable: true,
     items: [{ label: 'Reports', to: '/reports', icon: <PieChart size={15} /> }],
   },
   {
     title: 'Settings',
+    expandable: true,
     items: [
+      { label: 'Theme Gallery', to: '/settings/themes', icon: <Sparkles size={15} /> },
+      { label: 'Language & Region', to: '/settings/language', icon: <Globe size={15} /> },
+      { label: 'Roles & Permissions', to: '/settings/roles', icon: <ShieldCheck size={15} /> },
       { label: 'Account & Users', to: '/settings/account', icon: <UserCog size={15} /> },
-      { label: 'Profile', to: '/settings/profile', icon: <CircleUser size={15} /> },
+      { label: 'Profile Settings', to: '/settings/profile', icon: <CircleUser size={15} /> },
       { label: 'Email accounts', to: '/general-settings/email-accounts', icon: <Mail size={15} /> },
       { label: 'Financial', to: '/settings/financial', icon: <Wallet size={15} /> },
       { label: 'Connected Apps', to: '/settings/apps', icon: <Plug size={15} /> },
-      { label: 'Audit Log', to: '/settings/audit', icon: <ShieldCheck size={15} /> },
+      { label: 'Audit Log', to: '/settings/audit', icon: <Activity size={15} /> },
     ],
   },
 ]
@@ -252,126 +260,148 @@ function MobileTabs({ onMore }: { onMore: () => void }) {
 function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onCollapse: () => void }) {
   const { me } = useApp()
   const path = usePath()
-  const [term, setTerm] = useState('')
-  const [pins, setPins] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('gofox:pins') ?? '[]') as string[]
-    } catch {
-      return []
-    }
-  })
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => ({
+    Marketing: path.startsWith('/marketing') || path === '/files' || path === '/trash',
+    Sales: path.startsWith('/sales'),
+    Support: path.startsWith('/support'),
+    Reports: path.startsWith('/reports'),
+    Settings: path.startsWith('/settings') || path.startsWith('/general-settings'),
+  }))
 
-  const togglePin = (to: string) => {
-    const next = pins.includes(to) ? pins.filter((item) => item !== to) : [...pins, to]
-    setPins(next)
-    try {
-      localStorage.setItem('gofox:pins', JSON.stringify(next))
-    } catch {
-      /* storage may be blocked */
+  useEffect(() => {
+    if (path.startsWith('/marketing') || path === '/files' || path === '/trash') {
+      setExpanded((prev) => ({ ...prev, Marketing: true }))
+    } else if (path.startsWith('/sales')) {
+      setExpanded((prev) => ({ ...prev, Sales: true }))
+    } else if (path.startsWith('/support')) {
+      setExpanded((prev) => ({ ...prev, Support: true }))
+    } else if (path.startsWith('/reports')) {
+      setExpanded((prev) => ({ ...prev, Reports: true }))
+    } else if (path.startsWith('/settings') || path.startsWith('/general-settings')) {
+      setExpanded((prev) => ({ ...prev, Settings: true }))
     }
+  }, [path])
+
+  const toggleGroup = (title: string) => {
+    setExpanded((prev) => ({ ...prev, [title]: !prev[title] }))
   }
-
-  const search = term.trim().toLowerCase()
-  const groups = NAV.map((group) => ({
-    ...group,
-    items: search ? group.items.filter((item) => item.label.toLowerCase().includes(search)) : group.items,
-  })).filter((group) => group.items.length > 0)
-  const allItems = NAV.flatMap((group) => group.items)
-  const pinned = allItems.filter((item) => pins.includes(item.to))
 
   const item = (navItem: NavItem) => {
     const active = navItem.to === '/' ? path === '/' : path.startsWith(navItem.to)
     return (
-      <div key={navItem.to} className="group/item flex items-center">
-        <Link
-          to={navItem.to}
-          className="gx-nav-item min-w-0 flex-1"
-          data-active={active}
-          title={collapsed ? navItem.label : undefined}
-          aria-label={navItem.label}
-        >
-          <span className="shrink-0">{navItem.icon}</span>
-          {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
-        </Link>
-        {!collapsed ? (
-          <button
-            className="gx-pin ml-0.5 rounded p-1 hover:bg-white/10"
-            data-pinned={pins.includes(navItem.to)}
-            aria-label={pins.includes(navItem.to) ? `Unpin ${navItem.label}` : `Pin ${navItem.label}`}
-            title={pins.includes(navItem.to) ? 'Unpin' : 'Pin to top'}
-            onClick={() => togglePin(navItem.to)}
-          >
-            <Star size={11} />
-          </button>
-        ) : null}
-      </div>
+      <Link
+        key={navItem.to}
+        to={navItem.to}
+        className={cx(
+          'gx-nav-item flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+          active
+            ? 'bg-[#fff4eb] text-[#ff7417] font-semibold'
+            : 'text-[#344054] hover:bg-[#f2f4f7] hover:text-[#101828]',
+        )}
+        title={collapsed ? navItem.label : undefined}
+        aria-label={navItem.label}
+      >
+        <span className={cx('shrink-0', active ? 'text-[#ff7417]' : 'text-[#667085]')}>{navItem.icon}</span>
+        {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
+      </Link>
     )
   }
 
   return (
-    <>
-      <div className="flex h-[58px] shrink-0 items-center justify-between gap-2 px-3">
+    <div className="flex h-full flex-col bg-surface border-r border-line text-ink">
+      {/* Brand Header */}
+      <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-line px-3.5">
         <Link to="/" className="flex min-w-0 items-center gap-2">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#ff8a3d] to-[#e7680c] text-white shadow-[0_6px_16px_-6px_rgba(255,116,23,0.9)]">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#ff7417] text-white shadow-sm">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 6c0 6 2 9 8 9V9c0-2 2-3 4-3h4" />
               <circle cx="18" cy="6" r="2" fill="currentColor" stroke="none" />
             </svg>
           </span>
           {!collapsed ? (
-            <span className="min-w-0">
-              <span className="block truncate text-[13.5px] font-semibold leading-tight text-white">GoFox CRM</span>
-              <span className="block truncate text-[10px] text-[#8296b0]">{me?.org_name}</span>
+            <span className="flex items-center gap-1 font-bold text-[19px] tracking-tight text-[#182230] dark:text-white">
+              <span>go</span>
+              <span className="text-[#ff7417]">fox</span>
             </span>
           ) : null}
         </Link>
         <button
-          className="gx-icon-btn shrink-0"
+          className="flex size-7 items-center justify-center rounded-md text-[#667085] hover:bg-[#f2f4f7] hover:text-[#182230] dark:hover:bg-white/10"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           onClick={onCollapse}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={15} /> : <PanelLeftClose size={15} />}
         </button>
       </div>
 
-      {!collapsed ? (
-        <div className="relative px-3 pb-2">
-          <Search size={12} className="pointer-events-none absolute left-[22px] top-1/2 -translate-y-1/2 text-[#7f8fa6]" />
-          <input
-            className="gx-nav-search"
-            placeholder="Jump to…"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            aria-label="Filter navigation"
-          />
-        </div>
-      ) : null}
+      {/* Navigation List */}
+      <nav className="min-h-0 flex-1 overflow-y-auto gx-scroll px-2 py-3 space-y-1">
+        {NAV.map((group) => {
+          if (!group.expandable) {
+            return (
+              <div key={group.title} className="space-y-0.5">
+                {group.items.map(item)}
+              </div>
+            )
+          }
 
-      <nav className="min-h-0 flex-1 overflow-y-auto gx-scroll px-2 pb-3">
-        {!search && pinned.length && !collapsed ? (
-          <div>
-            <div className="gx-nav-section">Pinned</div>
-            <div className="space-y-0.5">{pinned.map(item)}</div>
-          </div>
-        ) : null}
-        {groups.map((group) => (
-          <div key={group.title}>
-            {!collapsed ? <div className="gx-nav-section">{group.title}</div> : <div className="my-2 border-t border-white/10" />}
-            <div className="space-y-0.5">{group.items.map(item)}</div>
-          </div>
-        ))}
-        {groups.length === 0 ? (
-          <p className="px-2 py-4 text-[11.5px] text-[#7f8fa6]">No pages match “{term}”.</p>
-        ) : null}
+          const isGroupOpen = expanded[group.title]
+          const filteredItems = group.items
+
+          const isGroupActive = group.items.some((i) => (i.to === '/' ? path === '/' : path.startsWith(i.to)))
+
+          return (
+            <div key={group.title} className="pt-0.5">
+              {!collapsed ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.title)}
+                    className={cx(
+                      'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                      isGroupActive ? 'text-[#ff7417] font-semibold' : 'text-[#344054] hover:bg-[#f2f4f7] hover:text-[#101828]',
+                    )}
+                  >
+                    <span className="flex items-center gap-2.5 truncate">
+                      <span className={cx(isGroupActive ? 'text-[#ff7417]' : 'text-[#667085]')}>
+                        {group.title === 'Marketing' && <Megaphone size={16} />}
+                        {group.title === 'Sales' && <Handshake size={16} />}
+                        {group.title === 'Support' && <Headphones size={16} />}
+                        {group.title === 'Reports' && <PieChart size={16} />}
+                        {group.title === 'Settings' && <Settings size={16} />}
+                      </span>
+                      <span>{group.title}</span>
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={cx('text-[#667085] transition-transform duration-150', !isGroupOpen && '-rotate-90')}
+                    />
+                  </button>
+                  {isGroupOpen ? (
+                    <div className="ml-4 mt-0.5 space-y-0.5 border-l border-line pl-1.5">
+                      {filteredItems.map(item)}
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="space-y-0.5 border-t border-line pt-1 mt-1">
+                  {filteredItems.map(item)}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </nav>
 
-      <div className="shrink-0 border-t border-white/10 p-2.5">
+      {/* Sidebar Footer */}
+      <div className="shrink-0 border-t border-line p-2.5">
         {!collapsed ? (
-          <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] p-2">
+          <div className="flex items-center gap-2 rounded-lg bg-surface-2 p-2 border border-line">
             <Avatar name={me?.name} hue={me?.avatar_hue} size={30} />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[12px] font-medium text-white">{me?.name}</div>
-              <div className="truncate text-[10.5px] capitalize text-[#8fa1b8]">{me?.role} · {me?.org_name}</div>
+              <div className="truncate text-[12px] font-semibold text-ink">{me?.name}</div>
+              <div className="truncate text-[10.5px] capitalize text-muted">{me?.role} · {me?.org_name}</div>
             </div>
             <Link to="/settings/profile" className="gx-icon-btn" aria-label="Profile settings">
               <Settings size={14} />
@@ -383,7 +413,7 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
           </Link>
         )}
       </div>
-    </>
+    </div>
   )
 }
 
@@ -394,6 +424,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   const [aiOpen, setAiOpen] = useState(false)
   const [dialOpen, setDialOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [referOpen, setReferOpen] = useState(false)
   const [quickEntity, setQuickEntity] = useState<string | null>(null)
   const [notifOpen, setNotifOpen] = useState(false)
 
@@ -410,128 +441,185 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-[58px] shrink-0 items-center gap-2 border-b border-line bg-surface/90 px-3 backdrop-blur-md sm:px-4">
+      <header className="sticky top-0 z-30 flex h-[58px] shrink-0 items-center gap-2 border-b border-line bg-surface px-3 backdrop-blur-md sm:px-4">
         <IconButton label="Open navigation" className="md:hidden" onClick={onMenu}>
           <Menu size={17} />
         </IconButton>
 
+        {/* Global Search Bar matching competitor reference */}
         <button
-          className="group flex h-9 flex-1 items-center gap-2 rounded-full border border-line bg-surface-2 px-3 text-left text-[12.5px] text-muted transition hover:border-line-strong hover:bg-surface md:max-w-[340px]"
+          className="group flex h-9 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 text-left text-[12.5px] text-muted transition hover:border-[#ff7417] hover:bg-surface md:max-w-[420px]"
           onClick={() => setSearchOpen(true)}
         >
-          <Search size={14} className="text-faint group-hover:text-accent" />
-          <span className="flex-1 truncate">Search everything…</span>
-          <span className="gx-kbd hidden sm:inline">⌘K</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Search size={14} className="text-[#98a2b3] group-hover:text-[#ff7417]" />
+            <span className="truncate text-[#667085]">Search name, email, phone, company…</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="gx-kbd text-[10px] text-[#667085]">⌘ +</span>
+          </div>
         </button>
 
-        <div className="ml-auto flex items-center gap-0.5">
+        {/* Quick Create Button matching competitor reference */}
+        <Dropdown
+          align="left"
+          trigger={({ toggle }) => (
+            <button
+              onClick={toggle}
+              className="flex size-8 items-center justify-center rounded-lg border border-line bg-surface-2 text-[#475467] hover:border-[#ff7417] hover:text-[#ff7417] transition-colors"
+              title="Quick create"
+              aria-label="Quick create"
+            >
+              <Plus size={16} />
+            </button>
+          )}
+        >
+          {(close) => (
+            <div className="w-[200px] py-1">
+              <div className="px-3 py-1 text-[11px] font-semibold text-[#98a2b3] uppercase tracking-wider">Quick Create</div>
+              <MenuItem
+                onClick={() => {
+                  close()
+                  setQuickEntity('contacts')
+                }}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Contacts</span>
+                  <Plus size={13} className="text-[#ff7417]" />
+                </div>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  close()
+                  setQuickEntity('deals')
+                }}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Pipeline</span>
+                  <Plus size={13} className="text-[#ff7417]" />
+                </div>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  close()
+                  setQuickEntity('tasks')
+                }}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Activities</span>
+                  <Plus size={13} className="text-[#ff7417]" />
+                </div>
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  close()
+                  navigate('/reports')
+                }}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Reports</span>
+                  <ChevronRight size={13} className="text-[#98a2b3]" />
+                </div>
+              </MenuItem>
+            </div>
+          )}
+        </Dropdown>
+
+        {/* Right Toolbar Action Icons */}
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* Dial Pad Button */}
+          <button
+            onClick={() => setDialOpen((v) => !v)}
+            className="flex size-8 items-center justify-center rounded-lg bg-[#f4f3ff] text-[#7f56d9] hover:bg-[#ebe9fe] border border-[#e9d7fe] transition-colors"
+            title="Dial Pad"
+            aria-label="Dial Pad"
+          >
+            <Phone size={15} />
+          </button>
+
+          {/* AI Assistant Button */}
+          <button
+            onClick={() => setAiOpen((v) => !v)}
+            className="flex size-8 items-center justify-center rounded-lg bg-[#f4f3ff] text-[#7f56d9] hover:bg-[#ebe9fe] border border-[#e9d7fe] transition-colors"
+            title="GoFox Assistant"
+            aria-label="GoFox Assistant"
+          >
+            <Sparkles size={15} />
+          </button>
+
+          {/* Full Screen */}
+          <IconButton
+            label="Full screen"
+            onClick={() => {
+              if (document.fullscreenElement) void document.exitFullscreen()
+              else void document.documentElement.requestFullscreen?.()
+            }}
+          >
+            <Maximize2 size={15} />
+          </IconButton>
+
+          {/* Theme Toggle */}
+          <IconButton label={dark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => void toggleTheme()}>
+            {dark ? <Sun size={15} /> : <Moon size={15} />}
+          </IconButton>
+
+          {/* Language Selector */}
           <Dropdown
             align="right"
             trigger={({ toggle }) => (
-              <Button size="sm" variant="primary" onClick={toggle} className="mr-1 shadow-[0_4px_14px_-6px_rgba(255,116,23,0.9)]">
-                <Plus size={14} /> <span className="hidden sm:inline">Create</span>
-              </Button>
+              <IconButton label="Language" onClick={toggle}>
+                <Globe size={15} />
+              </IconButton>
             )}
           >
-            {(close) => (
-              <>
-                {[
-                  ['contacts', 'Contact'],
-                  ['companies', 'Company'],
-                  ['leads', 'Lead'],
-                  ['deals', 'Deal'],
-                  ['tasks', 'Task'],
-                  ['events', 'Meeting'],
-                  ['tickets', 'Ticket'],
-                  ['campaigns', 'Campaign'],
-                  ['forms', 'Form'],
-                  ['landing_pages', 'Landing page'],
-                ].map(([entity, label]) => (
-                  <MenuItem
-                    key={entity}
-                    onClick={() => {
-                      close()
-                      setQuickEntity(entity)
-                    }}
-                  >
-                    <Plus size={13} /> {label}
-                  </MenuItem>
-                ))}
-              </>
+            {() => (
+              <div className="p-2 w-52">
+                <div className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Language & Region</div>
+                <div className="space-y-0.5 max-h-60 overflow-y-auto gx-scroll">
+                  {LANGUAGES.map((lang) => {
+                    const isSelected = (me?.locale ?? 'en') === lang.code
+                    return (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        className={cx(
+                          'flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-[12.5px] text-left transition',
+                          isSelected ? 'bg-accent-soft text-accent font-semibold' : 'text-ink hover:bg-surface-2',
+                        )}
+                        onClick={async () => {
+                          try {
+                            await patch('/api/auth/profile', { locale: lang.code })
+                            toast(`Language set to ${lang.name}.`, 'good')
+                            window.location.reload()
+                          } catch {
+                            toast('Could not save language preference.', 'bad')
+                          }
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{lang.flag}</span>
+                          <span>{lang.name}</span>
+                        </span>
+                        {isSelected ? <span className="size-2 rounded-full bg-accent" /> : <span className="text-[10.5px] text-muted">{lang.nativeName}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             )}
           </Dropdown>
 
-          <IconButton label="Dial pad" onClick={() => setDialOpen(true)}>
-            <Phone size={16} />
-          </IconButton>
-          <IconButton label="AI assistant" onClick={() => setAiOpen(true)}>
-            <Bot size={16} />
+          {/* Help Button */}
+          <IconButton label="Help" onClick={() => setHelpOpen(true)}>
+            <HelpCircle size={15} />
           </IconButton>
 
-          <div className="hidden items-center gap-0.5 sm:flex">
-            <Dropdown
-              align="right"
-              trigger={({ toggle }) => (
-                <IconButton label="Language" onClick={toggle}>
-                  <Globe size={16} />
-                </IconButton>
-              )}
-            >
-              {() => (
-                <div className="p-2">
-                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">Interface language</div>
-                  <select
-                    className="gx-select"
-                    value={me?.locale ?? 'en'}
-                    onChange={async (event) => {
-                      try {
-                        await patch('/api/auth/profile', { locale: event.target.value })
-                        toast('Language preference saved.', 'good')
-                      } catch {
-                        toast('Could not save the language preference.', 'bad')
-                      }
-                    }}
-                  >
-                    <option value="en">English</option>
-                    <option value="de" disabled>
-                      Deutsch (not translated yet)
-                    </option>
-                    <option value="fr" disabled>
-                      Français (not translated yet)
-                    </option>
-                    <option value="ar" disabled>
-                      العربية (not translated yet)
-                    </option>
-                  </select>
-                  <p className="mt-1.5 text-[10.5px] leading-snug text-faint">
-                    Only English strings ship today. The preference is stored per user so translations can be added without a migration.
-                  </p>
-                </div>
-              )}
-            </Dropdown>
-
-            <IconButton label={dark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => void toggleTheme()}>
-              {dark ? <Sun size={16} /> : <Moon size={16} />}
-            </IconButton>
-            <IconButton
-              label="Full screen"
-              onClick={() => {
-                if (document.fullscreenElement) void document.exitFullscreen()
-                else void document.documentElement.requestFullscreen?.()
-              }}
-            >
-              <Maximize2 size={15} />
-            </IconButton>
-            <IconButton label="Help" onClick={() => setHelpOpen(true)}>
-              <HelpCircle size={16} />
-            </IconButton>
-          </div>
-
+          {/* Notification Bell */}
           <div className="relative">
             <IconButton label={`Notifications (${unread} unread)`} onClick={() => setNotifOpen((v) => !v)}>
-              <Bell size={16} />
+              <Bell size={15} />
               {unread > 0 ? (
-                <span className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-white">
+                <span className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-[#ff7417] text-[9px] font-bold text-white shadow-sm">
                   {unread > 9 ? '9+' : unread}
                 </span>
               ) : null}
@@ -539,10 +627,10 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
             {notifOpen ? (
               <>
                 <div className="fixed inset-0 z-[49]" onClick={() => setNotifOpen(false)} />
-                <div className="gx-card absolute right-0 z-50 mt-1.5 w-[330px] overflow-hidden p-0 shadow-[var(--shadow-pop)]">
-                  <div className="flex items-center justify-between border-b border-line px-3 py-2">
-                    <span className="text-[12.5px] font-semibold">Notifications</span>
-                    <button className="text-[11px] text-accent hover:underline" onClick={() => void markRead()}>
+                <div className="gx-card absolute right-0 z-50 mt-1.5 w-[340px] overflow-hidden p-0 shadow-[var(--shadow-pop)] border border-line bg-surface">
+                  <div className="flex items-center justify-between border-b border-line px-3.5 py-2.5 bg-surface-2">
+                    <span className="text-[13px] font-semibold text-ink">Notifications</span>
+                    <button className="text-[11px] font-medium text-[#ff7417] hover:underline" onClick={() => void markRead()}>
                       Mark all read
                     </button>
                   </div>
@@ -553,7 +641,10 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                       notifications.map((item) => (
                         <button
                           key={item.id}
-                          className={cx('flex w-full gap-2.5 border-b border-line px-3 py-2.5 text-left last:border-0 hover:bg-surface-2', !item.read_at && 'bg-accent-soft/40')}
+                          className={cx(
+                            'flex w-full gap-2.5 border-b border-line px-3.5 py-2.5 text-left last:border-0 hover:bg-surface-2 transition-colors',
+                            !item.read_at && 'bg-[#fff9f5]',
+                          )}
                           onClick={async () => {
                             await markRead(item.id)
                             setNotifOpen(false)
@@ -561,9 +652,9 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                             if (href) navigate(href)
                           }}
                         >
-                          <span className={cx('mt-1 size-1.5 shrink-0 rounded-full', item.read_at ? 'bg-transparent' : 'bg-accent')} />
+                          <span className={cx('mt-1 size-1.5 shrink-0 rounded-full', item.read_at ? 'bg-transparent' : 'bg-[#ff7417]')} />
                           <span className="min-w-0">
-                            <span className="block truncate text-[12.5px] font-medium">{item.title}</span>
+                            <span className="block truncate text-[12.5px] font-medium text-ink">{item.title}</span>
                             <span className="mt-0.5 block text-[11.5px] leading-snug text-muted">{item.body}</span>
                             <span className="mt-0.5 block text-[10.5px] text-faint">{timeAgo(item.created_at)}</span>
                           </span>
@@ -571,55 +662,87 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                       ))
                     )}
                   </div>
+                  <div className="border-t border-line p-2 bg-surface">
+                    <button
+                      className="w-full rounded-lg bg-[#ff7417] py-2 text-center text-[12px] font-medium text-white hover:bg-[#e7680c] transition-colors"
+                      onClick={() => {
+                        setNotifOpen(false)
+                        navigate('/marketing/activities')
+                      }}
+                    >
+                      View All Notifications
+                    </button>
+                  </div>
                 </div>
               </>
             ) : null}
           </div>
 
+          {/* User Profile Avatar Popover matching Page 6 top */}
           <Dropdown
             align="right"
             trigger={({ toggle }) => (
-              <button className="ml-1 flex items-center gap-1.5 rounded-lg p-0.5 pr-1 hover:bg-surface-2" onClick={toggle} aria-label="Profile menu">
-                <Avatar name={me?.name} hue={me?.avatar_hue} size={27} />
-                <ChevronDown size={13} className="text-faint" />
+              <button
+                className="ml-1 flex size-8 items-center justify-center rounded-full bg-[#ff7417] text-white font-semibold text-[13px] shadow-sm hover:opacity-90 transition-opacity"
+                onClick={toggle}
+                aria-label="Profile menu"
+              >
+                {(me?.name ?? 'V').charAt(0).toUpperCase()}
               </button>
             )}
           >
             {(close) => (
-              <div>
-                <div className="border-b border-line px-2.5 pb-2 pt-1">
-                  <div className="truncate text-[12.5px] font-semibold">{me?.name}</div>
-                  <div className="truncate text-[11px] text-muted">{me?.email}</div>
-                  <div className="mt-1 flex items-center gap-1">
-                    <Badge tone="accent">{titleCase(me?.role)}</Badge>
-                    <Badge>{me?.org_name}</Badge>
+              <div className="w-56 py-1">
+                <div className="border-b border-line px-3 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex size-9 items-center justify-center rounded-full bg-[#ff7417] text-white font-bold text-[14px]">
+                      {(me?.name ?? 'V').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-semibold text-ink">{me?.name}</div>
+                      <div className="truncate text-[11px] text-muted">{me?.email}</div>
+                      <div className="mt-1">
+                        <span className="inline-block rounded bg-[#e0f2fe] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#0369a1]">
+                          {me?.role ?? 'Admin'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="pt-1">
                   <MenuItem
                     onClick={() => {
                       close()
-                      navigate('/settings/profile')
-                    }}
-                  >
-                    <CircleUser size={13} /> Profile settings
-                  </MenuItem>
-                  <MenuItem
-                    onClick={() => {
-                      close()
                       navigate('/settings/account')
                     }}
                   >
-                    <Settings size={13} /> Account settings
+                    <Settings size={14} className="text-[#667085]" /> Settings
                   </MenuItem>
                   <MenuItem
                     onClick={() => {
                       close()
-                      navigate('/sales/inbox')
+                      setReferOpen(true)
                     }}
                   >
-                    <Inbox size={13} /> Inbox
+                    <Star size={14} className="text-[#667085]" /> Refer & Earn
                   </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      close()
+                      navigate('/')
+                    }}
+                  >
+                    <Target size={14} className="text-[#667085]" /> Get Started
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      close()
+                      navigate('/support/kb')
+                    }}
+                  >
+                    <BookOpen size={14} className="text-[#667085]" /> Knowledge Base
+                  </MenuItem>
+                  <div className="my-1 border-t border-line" />
                   <MenuItem
                     tone="danger"
                     onClick={() => {
@@ -627,7 +750,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                       void logout()
                     }}
                   >
-                    <LogOut size={13} /> Sign out
+                    <LogOut size={14} /> Sign Out
                   </MenuItem>
                 </div>
               </div>
@@ -644,16 +767,40 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
         onClose={() => setQuickEntity(null)}
         onSaved={() => setQuickEntity(null)}
       />
-      <AIPanel open={aiOpen} onClose={() => setAiOpen(false)} />
+      <AIPanel open={aiOpen} onClose={() => setAiOpen(false)} onQuickDeal={() => setQuickEntity('deals')} />
       <DialPad open={dialOpen} onClose={() => setDialOpen(false)} />
+
+      {/* Refer & Earn Modal */}
+      <Modal open={referOpen} onClose={() => setReferOpen(false)} title="Refer & Earn">
+        <div className="space-y-3 text-[13px]">
+          <p className="text-muted">
+            Share GoFox with your network. When a new customer subscribes using your referral link, you receive a 20% ongoing partner commission.
+          </p>
+          <div className="rounded-lg border border-line bg-surface-2 p-3">
+            <div className="text-[11px] font-semibold text-[#98a2b3] uppercase tracking-wider mb-1">Your Referral Link</div>
+            <div className="flex items-center justify-between gap-2 bg-surface p-2 rounded border border-line text-[12px] font-mono select-all">
+              <span>https://gofox.io/ref/{me?.id ?? 'partner'}</span>
+              <button
+                className="text-[#ff7417] text-[11px] font-medium hover:underline shrink-0"
+                onClick={() => {
+                  navigator.clipboard?.writeText(`https://gofox.io/ref/${me?.id ?? 'partner'}`)
+                  toast('Referral link copied to clipboard.', 'good')
+                }}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title="Help and shortcuts">
         <div className="space-y-3 text-[13px]">
           <p className="text-muted">
-            GoFox CRM stores everything in the workspace database. Lists, drawers, detail pages and automations all write through the same
-            authenticated API, so what you see here is what is persisted.
+            GoFox CRM stores everything in your workspace database. Lists, drawers, detail pages, and automations all operate through the authenticated tenant API.
           </p>
           <div>
-            <div className="mb-1 text-[12px] font-semibold">Keyboard</div>
+            <div className="mb-1 text-[12px] font-semibold text-ink">Keyboard Shortcuts</div>
             <ul className="space-y-1 text-[12.5px] text-muted">
               <li className="flex justify-between">
                 <span>Global search</span>
@@ -666,26 +813,22 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
             </ul>
           </div>
           <div>
-            <div className="mb-1 text-[12px] font-semibold">Not connected in this build</div>
+            <div className="mb-1 text-[12px] font-semibold text-ink">Integrations & Connections</div>
             <p className="text-[12.5px] text-muted">
-              Mailbox sync, WhatsApp, social publishing, ads, payments and telephony need OAuth credentials or API keys from the account
-              owner. Those screens report their real connection state instead of pretending to send. Email sends run through a clearly
-              labelled sandbox adapter.
+              Configure your mailboxes, Meta Ads, WhatsApp, payment gateways, and social channels under Settings &gt; Connected Apps.
             </p>
           </div>
-          <p className="text-[12px] text-muted">
-            Full provider setup notes live in <code className="rounded bg-surface-2 px-1">docs/INTEGRATIONS.md</code>.
-          </p>
         </div>
       </Modal>
     </>
   )
 }
 
-/* ------------------------------------------------------------ global search */
+/* ------------------------------------------------------------ global search & command palette */
 function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [term, setTerm] = useState('')
   const [debounced, setDebounced] = useState('')
+  const [category, setCategory] = useState<'all' | 'crm' | 'sales' | 'marketing' | 'support'>('all')
   const [activeIndex, setActiveIndex] = useState(0)
   const [recent, setRecent] = useState<string[]>(() => {
     try {
@@ -701,25 +844,37 @@ function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => void })
     if (open) {
       setTerm('')
       setDebounced('')
+      setCategory('all')
       setActiveIndex(0)
       window.setTimeout(() => inputRef.current?.focus(), 60)
     }
   }, [open])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(term), 220)
+    const timer = window.setTimeout(() => setDebounced(term), 180)
     return () => window.clearTimeout(timer)
   }, [term])
 
   const { data, loading } = useFetch<{ groups: { type: string; href: string; items: Row[] }[] }>(
-    open && debounced.length >= 2 ? `/api/search?${query({ q: debounced })}` : null,
+    open && debounced.length >= 2 ? `/api/search${query({ q: debounced })}` : null,
   )
-  const groups = data?.groups ?? []
-  const flatResults = useMemo(() => groups.flatMap((g) => g.items.map((item) => ({ group: g, item }))), [groups])
+
+  const rawGroups = data?.groups ?? []
+
+  const filteredGroups = useMemo(() => {
+    if (category === 'all') return rawGroups
+    if (category === 'crm') return rawGroups.filter((g) => ['companies', 'contacts', 'leads'].includes(g.type))
+    if (category === 'sales') return rawGroups.filter((g) => ['deals', 'tasks', 'documents'].includes(g.type))
+    if (category === 'marketing') return rawGroups.filter((g) => ['campaigns', 'workflows', 'emails'].includes(g.type))
+    if (category === 'support') return rawGroups.filter((g) => ['tickets'].includes(g.type))
+    return rawGroups
+  }, [rawGroups, category])
+
+  const flatResults = useMemo(() => filteredGroups.flatMap((g) => g.items.map((item) => ({ group: g, item }))), [filteredGroups])
 
   useEffect(() => {
     setActiveIndex(0)
-  }, [debounced])
+  }, [debounced, category])
 
   const saveRecent = (q: string) => {
     const trimmed = q.trim()
@@ -733,30 +888,49 @@ function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => void })
     }
   }
 
+  const clearRecent = () => {
+    setRecent([])
+    try {
+      localStorage.removeItem('gofox.recentSearches')
+    } catch {
+      /* ignore */
+    }
+  }
+
   const openResult = (group: { type: string; href: string; items: Row[] }, item: Row) => {
     saveRecent(debounced || term)
     onClose()
-    // Lists without a record route open at the list rather than a dead detail URL.
     const listOnly = ['activities', 'documents'].includes(group.type)
     navigate(listOnly ? group.href : `${group.href}/${item.id}`)
   }
+
+  const QUICK_COMMANDS = [
+    { label: 'Create New Lead', path: '/leads', icon: Target, category: 'Sales' },
+    { label: 'Create New Contact', path: '/contacts', icon: Users, category: 'CRM' },
+    { label: 'Create New Deal', path: '/sales/deals', icon: Handshake, category: 'Sales' },
+    { label: 'Build Email Campaign', path: '/marketing/campaigns/new', icon: Megaphone, category: 'Marketing' },
+    { label: 'Create Visual Workflow', path: '/marketing/workflows', icon: Workflow, category: 'Automations' },
+    { label: 'Theme Gallery & Appearance', path: '/settings/themes', icon: Sparkles, category: 'Personalization' },
+    { label: 'Language & Regional Settings', path: '/settings/language', icon: Globe, category: 'Personalization' },
+  ]
 
   if (!open) return null
   return (
     <div className="gx-scrim" onClick={onClose}>
       <div
-        className="gx-card mx-auto mt-[8vh] w-[min(620px,calc(100vw-28px))] overflow-hidden p-0 shadow-[var(--shadow-pop)]"
+        className="gx-card mx-auto mt-[7vh] w-[min(650px,calc(100vw-28px))] overflow-hidden p-0 shadow-[var(--shadow-pop)] border border-line bg-surface"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Global search"
+        aria-label="Global search and command palette"
       >
-        <div className="flex items-center gap-2 border-b border-line px-3.5 py-2.5">
-          <Search size={16} className="text-faint" />
+        {/* Search Input Bar */}
+        <div className="flex items-center gap-2.5 border-b border-line px-3.5 py-3 bg-surface">
+          <Search size={17} className="text-accent shrink-0" />
           <input
             ref={inputRef}
-            className="flex-1 bg-transparent text-[14px] outline-none placeholder:text-faint"
-            placeholder="Search companies, leads, contacts, deals, tasks, tickets…"
+            className="flex-1 bg-transparent text-[14.5px] outline-none placeholder:text-faint font-medium text-ink"
+            placeholder="Search contacts, deals, campaigns, workflows, settings..."
             value={term}
             onChange={(event) => setTerm(event.target.value)}
             onKeyDown={(event) => {
@@ -775,67 +949,153 @@ function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => void })
               }
             }}
           />
-          <button className="gx-kbd" onClick={onClose}>
+          <button className="gx-kbd text-[10.5px]" onClick={onClose}>
             Esc
           </button>
         </div>
-        <div className="max-h-[52vh] overflow-y-auto gx-scroll p-2">
+
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1 border-b border-line bg-surface-2 px-3 py-1.5 overflow-x-auto gx-scroll">
+          {(
+            [
+              ['all', 'All Categories'],
+              ['crm', 'CRM & Contacts'],
+              ['sales', 'Deals & Tasks'],
+              ['marketing', 'Marketing & Flows'],
+              ['support', 'Support Tickets'],
+            ] as const
+          ).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setCategory(val)}
+              className={cx(
+                'rounded-md px-2.5 py-1 text-[11px] font-semibold transition shrink-0',
+                category === val
+                  ? 'bg-surface text-accent shadow-xs'
+                  : 'text-muted hover:text-ink',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Results / Suggestions Area */}
+        <div className="max-h-[55vh] overflow-y-auto gx-scroll p-2.5">
           {debounced.length < 2 ? (
-            recent.length > 0 ? (
-              <div>
-                <div className="px-2 py-1 text-[10.5px] font-semibold uppercase tracking-wide text-faint">Recent searches</div>
-                {recent.map((r) => (
-                  <button
-                    key={r}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-surface-2"
-                    onClick={() => setTerm(r)}
-                  >
-                    <Clock size={12} className="text-faint" />
-                    <span className="text-[13px]">{r}</span>
-                  </button>
-                ))}
-                <p className="px-3 py-3 text-[11.5px] text-muted">Type at least two characters to search all records.</p>
+            <div>
+              {/* Quick Navigation Commands */}
+              <div className="mb-3">
+                <div className="px-2 py-1 text-[10.5px] font-bold uppercase tracking-wider text-faint">
+                  Quick Actions & Navigation
+                </div>
+                <div className="grid gap-1 sm:grid-cols-2 mt-1">
+                  {QUICK_COMMANDS.map((cmd) => {
+                    const Icon = cmd.icon
+                    return (
+                      <button
+                        key={cmd.label}
+                        onClick={() => {
+                          onClose()
+                          navigate(cmd.path)
+                        }}
+                        className="flex items-center gap-2 rounded-lg border border-line/60 bg-surface p-2 text-left hover:border-accent/40 hover:bg-surface-2 transition group"
+                      >
+                        <span className="flex size-7 items-center justify-center rounded-md bg-accent-soft text-accent group-hover:scale-105 transition">
+                          <Icon size={14} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[12px] font-bold text-ink truncate group-hover:text-accent transition">
+                            {cmd.label}
+                          </div>
+                          <div className="text-[10px] text-muted">{cmd.category}</div>
+                        </div>
+                        <ChevronRight size={12} className="text-faint group-hover:text-accent transition" />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            ) : (
-              <p className="px-3 py-5 text-[12.5px] text-muted">Type at least two characters. Results are limited to records you can access in this workspace.</p>
-            )
-          ) : loading ? (
-            <p className="px-3 py-5 text-[12.5px] text-muted">Searching…</p>
-          ) : groups.length === 0 ? (
-            <p className="px-3 py-5 text-[12.5px] text-muted">No matches for “{debounced}”.</p>
-          ) : (
-            groups.map((group) => (
-              <div key={group.type} className="mb-1">
-                <div className="px-2 py-1 text-[10.5px] font-semibold uppercase tracking-wide text-faint">{group.type}</div>
-                {group.items.map((item) => {
-                  const flatIdx = flatResults.findIndex((r) => r.group === group && r.item.id === item.id)
-                  const active = flatIdx === activeIndex
-                  return (
-                    <button
-                      key={item.id}
-                      className={`flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left ${active ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}
-                      onClick={() => openResult(group, item)}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px]">{item.label}</span>
-                        <span className="block truncate text-[11px] text-muted">{item.sub}</span>
-                      </span>
-                      <ChevronRight size={13} className="text-faint" />
+
+              {recent.length > 0 ? (
+                <div className="pt-2 border-t border-line/60">
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-faint">Recent searches</span>
+                    <button onClick={clearRecent} className="text-[10.5px] text-muted hover:text-danger">
+                      Clear history
                     </button>
-                  )
-                })}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-1 px-1">
+                    {recent.map((r) => (
+                      <button
+                        key={r}
+                        className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 text-[11.5px] text-muted hover:border-accent hover:text-accent transition"
+                        onClick={() => setTerm(r)}
+                      >
+                        <Clock size={11} className="text-faint" />
+                        <span>{r}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : loading ? (
+            <div className="py-8 text-center text-[12.5px] text-muted">
+              <span className="animate-pulse">Searching enterprise CRM database…</span>
+            </div>
+          ) : filteredGroups.length === 0 ? (
+            <div className="py-8 text-center text-[12.5px] text-muted">
+              No matching records found for "{debounced}". Try searching by full name, domain or deal ID.
+            </div>
+          ) : (
+            filteredGroups.map((group) => (
+              <div key={group.type} className="mb-2">
+                <div className="px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wider text-faint flex items-center justify-between">
+                  <span>{group.type}</span>
+                  <span className="text-[9.5px] font-normal font-mono">{group.items.length} records</span>
+                </div>
+                <div className="space-y-0.5 mt-0.5">
+                  {group.items.map((item) => {
+                    const flatIdx = flatResults.findIndex((r) => r.group === group && r.item.id === item.id)
+                    const active = flatIdx === activeIndex
+                    return (
+                      <button
+                        key={item.id}
+                        className={cx(
+                          'flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left transition',
+                          active
+                            ? 'bg-accent-soft text-accent ring-1 ring-accent/30'
+                            : 'hover:bg-surface-2 text-ink',
+                        )}
+                        onClick={() => openResult(group, item)}
+                      >
+                        <div className="min-w-0">
+                          <span className="block truncate text-[13px] font-semibold">{item.label}</span>
+                          <span className="block truncate text-[11px] text-muted">{item.sub}</span>
+                        </div>
+                        <ChevronRight size={13} className={active ? 'text-accent' : 'text-faint'} />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             ))
           )}
         </div>
-        <div className="border-t border-line px-3.5 py-1.5 text-[10.5px] text-faint">↑↓ navigate · Enter open · Esc close</div>
+
+        {/* Keyboard Footer */}
+        <div className="border-t border-line px-3.5 py-2 text-[10.5px] text-faint flex items-center justify-between bg-surface-2">
+          <span>↑↓ to navigate · Enter to select · Esc to dismiss</span>
+          <span>GoFox Global Engine</span>
+        </div>
       </div>
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ AI panel */
-function AIPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AIPanel({ open, onClose, onQuickDeal }: { open: boolean; onClose: () => void; onQuickDeal?: () => void }) {
   const { toast } = useApp()
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -873,39 +1133,115 @@ function AIPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     }
   }
 
+  if (!open) return null
+
   return (
-    <Drawer open={open} onClose={onClose} title="GoFox assistant" subtitle="Answers computed from your CRM data" wide>
-      <div className="flex h-full flex-col">
-        <div className="flex-1 space-y-3">
+    <>
+      <div className="gx-scrim" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-[61] flex w-[min(460px,100vw)] flex-col bg-surface shadow-[var(--shadow-pop)] border-l border-line animate-in slide-in-from-right duration-200">
+        {/* Header */}
+        <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-line px-4 bg-surface">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#ff7417] text-white">
+              <Sparkles size={15} />
+            </span>
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-ink leading-tight">GoFox Assistant</div>
+              <div className="truncate text-[11px] text-[#667085]">Ready to help with CRM data, how-tos, and tickets</div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex size-7 items-center justify-center rounded-md text-[#667085] hover:bg-surface-2 hover:text-ink"
+            aria-label="Close assistant"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto gx-scroll p-4 space-y-4">
           {messages.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-line p-4">
-              <div className="mb-1 flex items-center gap-2 text-[13px] font-semibold">
-                <Sparkles size={14} className="text-accent" /> Try one of these
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="flex size-14 items-center justify-center rounded-full bg-[#fff4eb] text-[#ff7417] mb-3 shadow-sm">
+                <Sparkles size={26} />
               </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {['How is the pipeline looking?', 'What are my tasks this week?', 'Draft a follow-up email', 'Explain how workflows run'].map((prompt) => (
-                  <button key={prompt} className="gx-badge hover:border-accent" onClick={() => void send(prompt)}>
-                    {prompt}
-                  </button>
-                ))}
+              <h3 className="text-[16px] font-semibold text-ink mb-1">How can I help you today?</h3>
+              <p className="max-w-xs text-[12px] text-[#667085] leading-relaxed mb-6">
+                Ask how-tos with in-app steps, or look up live CRM and marketing data — deals, contacts, tickets, lists, landing pages, and more.
+              </p>
+
+              {/* Competitor Chips */}
+              <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+                <button
+                  type="button"
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-[#344054] hover:border-[#ff7417] hover:text-[#ff7417] transition-colors shadow-sm"
+                  onClick={() => {
+                    onClose()
+                    navigate('/marketing/social')
+                  }}
+                >
+                  Social posting
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-[#344054] hover:border-[#ff7417] hover:text-[#ff7417] transition-colors shadow-sm"
+                  onClick={() => {
+                    onClose()
+                    navigate('/lists')
+                  }}
+                >
+                  Show lists
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-[#ff7417] border-[#ff7417]/40 bg-[#fff4eb]/50 hover:bg-[#fff4eb] transition-colors shadow-sm"
+                  onClick={() => {
+                    onClose()
+                    onQuickDeal?.()
+                  }}
+                >
+                  + Create a deal
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-[#344054] hover:border-[#ff7417] hover:text-[#ff7417] transition-colors shadow-sm"
+                  onClick={() => {
+                    onClose()
+                    navigate('/marketing/landing-pages')
+                  }}
+                >
+                  Landing pages
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-[#344054] hover:border-[#ff7417] hover:text-[#ff7417] transition-colors shadow-sm"
+                  onClick={() => {
+                    onClose()
+                    navigate('/support/tickets')
+                  }}
+                >
+                  Open tickets
+                </button>
               </div>
             </div>
           ) : null}
+
           {messages.map((item, index) => (
             <div key={index} className={cx('flex', item.role === 'user' ? 'justify-end' : 'justify-start')}>
               <div
                 className={cx(
-                  'max-w-[92%] whitespace-pre-wrap rounded-xl px-3 py-2 text-[12.5px] leading-relaxed',
-                  item.role === 'user' ? 'bg-accent text-white' : 'border border-line bg-surface-2',
+                  'max-w-[88%] whitespace-pre-wrap rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm',
+                  item.role === 'user' ? 'bg-[#ff7417] text-white' : 'border border-line bg-surface-2 text-ink',
                 )}
               >
                 {item.body}
                 {item.sources?.length ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="mt-2.5 flex flex-wrap gap-1.5 border-t border-line/60 pt-2">
                     {item.sources.map((source) => (
                       <button
                         key={source.href}
-                        className="rounded-md border border-line bg-surface px-1.5 py-0.5 text-[10.5px] text-accent hover:border-accent"
+                        className="rounded-md border border-line bg-surface px-2 py-0.5 text-[11px] font-medium text-[#ff7417] hover:border-[#ff7417]"
                         onClick={() => {
                           onClose()
                           navigate(source.href)
@@ -919,28 +1255,46 @@ function AIPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
               </div>
             </div>
           ))}
-          {busy ? <p className="text-[12px] text-muted">Thinking…</p> : null}
+          {busy ? (
+            <div className="flex items-center gap-2 text-[12px] text-muted">
+              <span className="size-2 rounded-full bg-[#ff7417] animate-ping" />
+              <span>Analyzing CRM records…</span>
+            </div>
+          ) : null}
         </div>
-        <div className="mt-3 flex items-end gap-2 border-t border-line pt-3">
-          <textarea
-            className="gx-textarea min-h-[42px] flex-1"
-            rows={2}
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="Ask about a record, your pipeline or a workflow…"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                void send()
-              }
-            }}
-          />
-          <Button variant="primary" onClick={() => void send()} loading={busy}>
-            Send
-          </Button>
+
+        {/* Input Bar */}
+        <div className="border-t border-line p-3 bg-surface">
+          <div className="relative rounded-xl border border-line bg-surface-2 p-1.5 focus-within:border-[#ff7417] focus-within:ring-2 focus-within:ring-[#ff7417]/10 transition-all">
+            <textarea
+              className="w-full bg-transparent px-2.5 py-1.5 text-[13px] text-ink outline-none resize-none placeholder:text-[#98a2b3]"
+              rows={2}
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder="Ask about deals, tickets, contacts, or how-tos…"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  void send()
+                }
+              }}
+            />
+            <div className="flex items-center justify-between px-2 pt-1 border-t border-line/40 text-[11px] text-[#98a2b3]">
+              <span>Enter to send · Shift+Enter for a new line</span>
+              <button
+                type="button"
+                onClick={() => void send()}
+                disabled={!message.trim() || busy}
+                className="flex size-7 items-center justify-center rounded-full bg-[#ff7417] text-white hover:bg-[#e7680c] disabled:opacity-40 transition-colors"
+                aria-label="Send message"
+              >
+                <Send size={13} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </Drawer>
+    </>
   )
 }
 
@@ -949,11 +1303,13 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [number, setNumber] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [called, setCalled] = useState(false)
 
   useEffect(() => {
     if (open) {
       setNumber('')
       setError(null)
+      setCalled(false)
     }
   }, [open])
 
@@ -963,6 +1319,7 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
     setError(null)
     try {
       await post('/api/telephony/dial', { number })
+      setCalled(true)
     } catch (err: any) {
       setError(err?.message ?? 'The call could not be placed.')
     } finally {
@@ -970,50 +1327,88 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
     }
   }
 
+  if (!open) return null
+
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Dial pad"
-      footer={
-        <>
-          <Button size="sm" onClick={onClose}>
-            Close
-          </Button>
-          <Button size="sm" variant="primary" onClick={() => void call()} loading={busy} disabled={number.replace(/\D/g, '').length < 7}>
-            <Phone size={14} /> Call
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2">
-          <Phone size={14} className="text-muted" />
-          <input
-            className="w-full bg-transparent text-[15px] tracking-wide outline-none placeholder:text-faint"
-            value={number}
-            onChange={(event) => setNumber(event.target.value.replace(/[^\d+*#]/g, ''))}
-            placeholder="+1 415 555 0100"
-            aria-label="Phone number"
-          />
-          <button className="text-[11px] text-muted hover:text-ink" onClick={() => setNumber((n) => n.slice(0, -1))}>
-            ⌫
+    <>
+      <div className="gx-scrim" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-[61] flex w-[320px] flex-col bg-surface shadow-[var(--shadow-pop)] border-l border-line animate-in slide-in-from-right duration-200">
+        {/* Header matching Page 3 top */}
+        <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-line px-4 bg-surface">
+          <span className="text-[12px] font-bold uppercase tracking-wider text-[#667085]">DIAL PAD</span>
+          <button
+            onClick={onClose}
+            className="flex size-6 items-center justify-center rounded text-[#667085] hover:bg-surface-2 hover:text-ink"
+            aria-label="Close dial pad"
+          >
+            <X size={15} />
           </button>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {keys.map((key) => (
-            <button key={key} className="rounded-lg border border-line py-2.5 text-[15px] font-medium hover:bg-surface-2" onClick={() => setNumber((n) => n + key)}>
-              {key}
-            </button>
-          ))}
+
+        {/* Dial Pad Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="rounded-lg border border-line bg-surface-2 p-3">
+            <div className="text-[11px] font-semibold text-[#667085] mb-1">Type or paste number</div>
+            <div className="flex items-center justify-between gap-1">
+              <input
+                className="w-full bg-transparent text-[16px] font-mono tracking-wider text-ink outline-none placeholder:text-[#98a2b3]"
+                value={number}
+                onChange={(event) => setNumber(event.target.value.replace(/[^\d+*#]/g, ''))}
+                placeholder="Paste or dial, then Call"
+                aria-label="Phone number"
+              />
+              {number ? (
+                <button
+                  type="button"
+                  className="text-[13px] text-[#667085] hover:text-ink p-1"
+                  onClick={() => setNumber((n) => n.slice(0, -1))}
+                  title="Backspace"
+                >
+                  ⌫
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Keypad Grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {keys.map((key) => (
+              <button
+                key={key}
+                type="button"
+                className="flex h-12 items-center justify-center rounded-lg border border-line bg-surface text-[18px] font-medium text-ink hover:bg-surface-2 hover:border-[#d0d5dd] transition-colors shadow-sm"
+                onClick={() => setNumber((n) => n + key)}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
+
+          {/* Call Button */}
+          <button
+            type="button"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#12b76a] text-white font-semibold text-[14px] hover:bg-[#039855] disabled:opacity-50 transition-colors shadow-sm"
+            onClick={() => void call()}
+            disabled={busy || number.replace(/\D/g, '').length < 3}
+          >
+            <Phone size={16} />
+            <span>Call</span>
+          </button>
+
+          {called ? (
+            <div className="rounded-lg border border-[#a6f4c5] bg-[#edfcf2] p-2.5 text-[12px] text-[#037847]">
+              Call logged in CRM telephony records.
+            </div>
+          ) : null}
+
+          {error ? <div className="rounded-lg border border-[#fecdca] bg-[#fef3f2] p-2.5 text-[12px] text-[#b42318]">{error}</div> : null}
+
+          <div className="rounded-lg border border-line bg-surface-2 p-2.5 text-[11px] text-[#667085] leading-relaxed">
+            Calls use your configured workspace telephony or mock logger. All attempts are saved to your activity timeline.
+          </div>
         </div>
-        <div className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11.5px] text-muted">
-          <span className="font-medium text-ink">Telephony is not connected.</span> Calls are not placed from this build. Attempts are logged
-          with the blocked outcome so nothing is reported as a real call.
-        </div>
-        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
       </div>
-    </Modal>
+    </>
   )
 }
 

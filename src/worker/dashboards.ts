@@ -14,7 +14,7 @@ async function one(env: Env, sql: string, ...binds: unknown[]): Promise<Row> {
 
 /** A widget that throws is isolated by the API layer; the client retries it. */
 export async function homeDashboard(env: Env, orgId: string, userId: string, days = 7) {
-  const [tasks, counts, pipeline, activity, gettingStarted, quota] = await Promise.all([
+  const [tasks, counts, pipeline, activity, gettingStarted, quota, openDeals] = await Promise.all([
     all(
       env,
       `SELECT t.id, t.title, t.status, t.priority, t.due_date, t.related_type, t.related_id
@@ -34,9 +34,10 @@ export async function homeDashboard(env: Env, orgId: string, userId: string, day
         (SELECT COUNT(*) FROM leads WHERE org_id = ? AND deleted_at IS NULL AND status = 'new') AS new_leads,
         (SELECT COUNT(*) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status = 'open') AS open_deals,
         (SELECT COALESCE(SUM(value),0) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status = 'open') AS pipeline_value,
+        (SELECT COALESCE(SUM(value * COALESCE(probability, 50) / 100.0), 0) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status = 'open') AS weighted_pipeline,
         (SELECT COUNT(*) FROM tickets WHERE org_id = ? AND deleted_at IS NULL AND status IN ('open','pending')) AS open_tickets,
         (SELECT COUNT(*) FROM tasks WHERE org_id = ? AND deleted_at IS NULL AND status IN ('open','in_progress') AND assignee_id = ?) AS my_open_tasks`,
-      orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, userId,
+      orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, userId,
     ),
     all(
       env,
@@ -67,6 +68,15 @@ export async function homeDashboard(env: Env, orgId: string, userId: string, day
     one(
       env,
       `SELECT COUNT(*) AS total FROM activities WHERE org_id = ? AND created_at >= datetime('now','-7 day')`,
+      orgId,
+    ),
+    all(
+      env,
+      `SELECT d.id, d.name, d.value, d.probability, s.name AS stage_name
+       FROM deals d
+       LEFT JOIN stages s ON s.id = d.stage_id
+       WHERE d.org_id = ? AND d.deleted_at IS NULL AND d.status = 'open'
+       ORDER BY d.created_at DESC LIMIT 6`,
       orgId,
     ),
   ])
@@ -161,6 +171,7 @@ export async function homeDashboard(env: Env, orgId: string, userId: string, day
     tasks,
     counts: { ...counts, overdue_tasks: num(overdue.value) },
     pipeline,
+    openDeals,
     activity,
     gettingStarted,
     weeklyActivity: num(quota.total),
@@ -187,20 +198,24 @@ export async function homeDashboard(env: Env, orgId: string, userId: string, day
 }
 
 export async function marketingDashboard(env: Env, orgId: string) {
-  const [summary, trend, channels, funnel, recentLeads, sources, topPages, activity] = await Promise.all([
+  const [summary, trend, channels, funnel, recentLeads, sources, topPages, activity, publishedForms, leadSources, activityTypes] = await Promise.all([
     one(
       env,
       `SELECT
         (SELECT COUNT(*) FROM leads WHERE org_id = ? AND deleted_at IS NULL AND created_at >= datetime('now','-30 day')) AS new_leads,
         (SELECT COUNT(*) FROM contacts WHERE org_id = ? AND deleted_at IS NULL) AS contacts,
+        (SELECT COUNT(*) FROM campaigns WHERE org_id = ? AND deleted_at IS NULL) AS total_campaigns,
         (SELECT COUNT(*) FROM campaigns WHERE org_id = ? AND deleted_at IS NULL AND status = 'sent') AS campaigns_sent,
         (SELECT COALESCE(SUM(delivered),0) FROM campaigns WHERE org_id = ?) AS delivered,
         (SELECT COALESCE(SUM(opened),0) FROM campaigns WHERE org_id = ?) AS opened,
         (SELECT COALESCE(SUM(clicked),0) FROM campaigns WHERE org_id = ?) AS clicked,
         (SELECT COUNT(*) FROM form_submissions WHERE org_id = ? AND created_at >= datetime('now','-30 day')) AS submissions,
+        (SELECT COUNT(*) FROM forms WHERE org_id = ? AND deleted_at IS NULL AND status = 'published') AS published_forms,
+        (SELECT COUNT(*) FROM forms WHERE org_id = ? AND deleted_at IS NULL) AS total_forms,
         (SELECT COUNT(*) FROM web_events WHERE org_id = ? AND created_at >= datetime('now','-30 day')) AS web_events,
+        (SELECT COUNT(*) FROM landing_pages WHERE org_id = ? AND deleted_at IS NULL AND status = 'published') AS published_pages,
         (SELECT COALESCE(SUM(views),0) FROM landing_pages WHERE org_id = ?) AS page_views`,
-      orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId,
+      orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId, orgId,
     ),
     all(
       env,
@@ -235,7 +250,7 @@ export async function marketingDashboard(env: Env, orgId: string) {
     ),
     all(
       env,
-      `SELECT id, name, slug, status, views FROM landing_pages WHERE org_id = ? AND deleted_at IS NULL ORDER BY views DESC LIMIT 5`,
+      `SELECT id, name, slug, status, template, views FROM landing_pages WHERE org_id = ? AND deleted_at IS NULL ORDER BY views DESC LIMIT 6`,
       orgId,
     ),
     all(
@@ -244,8 +259,27 @@ export async function marketingDashboard(env: Env, orgId: string) {
        LEFT JOIN users u ON u.id = a.actor_id WHERE a.org_id = ? ORDER BY a.created_at DESC LIMIT 8`,
       orgId,
     ),
+    all(
+      env,
+      `SELECT f.id, f.name, f.slug, f.status, f.mapping,
+              (SELECT COUNT(*) FROM form_submissions WHERE form_id = f.id AND org_id = f.org_id) AS submissions
+       FROM forms f WHERE f.org_id = ? AND f.deleted_at IS NULL ORDER BY submissions DESC, f.created_at DESC LIMIT 6`,
+      orgId,
+    ),
+    all(
+      env,
+      `SELECT COALESCE(NULLIF(source,''), 'Organic Search') AS source, COUNT(*) AS value
+       FROM leads WHERE org_id = ? AND deleted_at IS NULL GROUP BY source ORDER BY value DESC LIMIT 6`,
+      orgId,
+    ),
+    all(
+      env,
+      `SELECT type, COUNT(*) AS value FROM activities
+       WHERE org_id = ? AND created_at >= datetime('now','-30 day') GROUP BY type ORDER BY value DESC LIMIT 6`,
+      orgId,
+    ),
   ])
-  return { summary, trend, channels, funnel, recentLeads, sources, topPages, activity }
+  return { summary, trend, channels, funnel, recentLeads, sources, topPages, activity, publishedForms, leadSources, activityTypes }
 }
 
 export async function salesDashboard(env: Env, orgId: string) {
@@ -253,11 +287,13 @@ export async function salesDashboard(env: Env, orgId: string) {
     one(
       env,
       `SELECT
+        (SELECT COUNT(*) FROM deals WHERE org_id = ? AND deleted_at IS NULL) AS total_deals,
         (SELECT COUNT(*) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status='open') AS open_deals,
         (SELECT COALESCE(SUM(value),0) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status='open') AS open_value,
         (SELECT COALESCE(SUM(value * probability / 100.0),0) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status='open') AS weighted_value,
         (SELECT COALESCE(SUM(value),0) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status='won') AS won_value,
         (SELECT COUNT(*) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status='won') AS won_count,
+        (SELECT COUNT(*) FROM deals WHERE org_id = ? AND deleted_at IS NULL AND status='lost') AS lost_count,
         (SELECT COUNT(*) FROM tasks WHERE org_id = ? AND deleted_at IS NULL AND status IN ('open','in_progress')) AS open_tasks,
         (SELECT COUNT(*) FROM tasks WHERE org_id = ? AND deleted_at IS NULL AND status IN ('open','in_progress') AND due_date < date('now')) AS overdue_tasks,
         (SELECT COUNT(*) FROM calls WHERE org_id = ? AND deleted_at IS NULL) AS calls,
@@ -265,7 +301,7 @@ export async function salesDashboard(env: Env, orgId: string) {
         (SELECT COUNT(*) FROM documents WHERE org_id = ? AND doc_type='quote') AS quotes,
         (SELECT COUNT(*) FROM documents WHERE org_id = ? AND doc_type='invoice' AND status='paid') AS paid_invoices,
         (SELECT COALESCE(SUM(total),0) FROM documents WHERE org_id = ? AND doc_type='invoice' AND status='paid') AS paid_value`,
-      ...Array(12).fill(orgId),
+      ...Array(14).fill(orgId),
     ),
     all(
       env,
@@ -281,8 +317,9 @@ export async function salesDashboard(env: Env, orgId: string) {
       `SELECT u.id, u.name, u.title,
         (SELECT COUNT(*) FROM deals d WHERE d.owner_id = u.id AND d.org_id = u.org_id AND d.deleted_at IS NULL AND d.status='open') AS deals,
         (SELECT COALESCE(SUM(d.value),0) FROM deals d WHERE d.owner_id = u.id AND d.org_id = u.org_id AND d.deleted_at IS NULL AND d.status='open') AS value,
-        (SELECT COUNT(*) FROM deals d WHERE d.owner_id = u.id AND d.org_id = u.org_id AND d.deleted_at IS NULL AND d.status='won') AS won
-       FROM users u WHERE u.org_id = ? AND u.status='active' ORDER BY value DESC`,
+        (SELECT COUNT(*) FROM deals d WHERE d.owner_id = u.id AND d.org_id = u.org_id AND d.deleted_at IS NULL AND d.status='won') AS won,
+        (SELECT COALESCE(SUM(d.value),0) FROM deals d WHERE d.owner_id = u.id AND d.org_id = u.org_id AND d.deleted_at IS NULL AND d.status='won') AS won_value
+       FROM users u WHERE u.org_id = ? AND u.status='active' ORDER BY won_value DESC, value DESC`,
       orgId,
     ),
     all(

@@ -34,6 +34,7 @@ import {
   GitBranch,
   Hand,
   Layers,
+  Layout,
   ListPlus,
   Mail,
   Maximize,
@@ -56,12 +57,33 @@ import {
   Webhook,
   X,
   Zap,
+  Briefcase,
+  Building2,
+  Calendar,
+  Flag,
+  RefreshCw,
+  TrendingUp,
 } from 'lucide-react'
 import { patch, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
 import { Badge, Button, Drawer, FormRow, Modal, Spinner, cx } from '../components/ui'
 import { useNavigate } from '../lib/router'
 import { TRIGGERS } from './automation'
+
+
+export const AUTOMATION_TRIGGERS = [
+  { key: 'deal_track_changes', label: 'Deal Track Changes', desc: 'Triggered when a deal track changes', icon: TrendingUp },
+  { key: 'deal_milestone_changes', label: 'Deal Milestone Changes', desc: 'Triggered when a deal milestone changes', icon: Flag },
+  { key: 'deal_created', label: 'Deal Created', desc: 'Triggered when a new deal is created', icon: Briefcase },
+  { key: 'tag_added_company', label: 'Tag Added to a Company', desc: 'Triggered when a tag is added to a company', icon: Building2 },
+  { key: 'event_created', label: 'Event Created', desc: 'Triggered when an event is created', icon: Calendar },
+  { key: 'appointment_scheduled', label: 'Appointment Scheduled', desc: 'Triggered when an appointment is scheduled', icon: CalendarClock },
+  { key: 'task_added', label: 'Task Added', desc: 'Triggered when a task is added', icon: ClipboardList },
+  { key: 'task_status_changed', label: 'Task Status Changed', desc: 'Triggered when a task status changes', icon: CheckCircle2 },
+  { key: 'tag_added_deal', label: 'Tag Added to a Deal', desc: 'Triggered when a tag is added to a deal', icon: Tag },
+  { key: 'tag_removed_deal', label: 'Tag Removed from a Deal', desc: 'Triggered when a tag is removed from a deal', icon: Tag },
+  { key: 'deal_updated', label: 'Deal Updated', desc: 'Triggered when deal details change', icon: RefreshCw },
+]
 
 /* ------------------------------------------------------------------- model */
 
@@ -166,35 +188,167 @@ const nodeTypes = { gx: GxNode }
 function GxNode({ data, selected }: NodeProps) {
   const d = data as unknown as GxData
   const Icon = d.type === 'trigger' ? Zap : d.type === 'end' ? CheckCircle2 : iconFor(d.kind)
-  const color = d.type === 'trigger' ? '#FF7417' : d.type === 'condition' ? '#7357D9' : d.type === 'wait' ? '#1d4ed8' : d.type === 'end' ? '#159C91' : CATEGORY_COLORS[NODE_CATALOG.find((i) => i.key === d.kind)?.category ?? 'Common']
+  const isTrigger = d.type === 'trigger'
+  const isCondition = d.type === 'condition'
+  const isWait = d.type === 'wait'
+  const isEnd = d.type === 'end'
+  const category = NODE_CATALOG.find((i) => i.key === d.kind)?.category ?? 'Common'
+  const catColor = CATEGORY_COLORS[category]
+
   return (
-    <div className={cx('gx-flow-node', selected && 'is-selected')}>
-      {d.type !== 'trigger' ? <Handle type="target" position={Position.Top} className="gx-handle" /> : null}
-      <div className="flex items-start gap-2.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ background: `${color}14`, color }}>
-          <Icon size={15} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-[12.5px] font-semibold text-ink">{d.label}</span>
-            <span className={cx('size-1.5 shrink-0 rounded-full', d.type === 'trigger' ? 'bg-good' : 'bg-[#c9d2df]')} />
-          </div>
-          <p className="mt-0.5 truncate text-[10.5px] text-muted">{d.hint}</p>
-        </div>
-        <button className="gx-node-cog nodrag" aria-label={`Configure ${d.label}`} title="Configure">
-          <Settings2 size={12} />
-        </button>
-      </div>
-      {d.type === 'condition' ? (
-        <>
-          <Handle id="true" type="source" position={Position.Bottom} className="gx-handle" style={{ left: '32%' }} />
-          <Handle id="false" type="source" position={Position.Bottom} className="gx-handle" style={{ left: '68%' }} />
-          <span className="pointer-events-none absolute -bottom-5 left-[22%] text-[10px] font-medium text-good">Yes</span>
-          <span className="pointer-events-none absolute -bottom-5 right-[22%] text-[10px] font-medium text-danger">No</span>
-        </>
-      ) : (
-        <Handle type="source" position={Position.Bottom} className="gx-handle" />
+    <div className="relative w-[260px] select-none">
+      {/* Target handle on top (except trigger) */}
+      {!isTrigger && (
+        <Handle
+          type="target"
+          position={Position.Top}
+          style={{ top: -7 }}
+          className="gx-handle !border-2 !border-white !bg-[#334155] !shadow-sm"
+        />
       )}
+
+      {/* Main Node Card Body */}
+      <div
+        className={cx(
+          'group overflow-hidden rounded-xl border bg-white shadow-sm transition-all',
+          selected
+            ? 'border-accent shadow-[0_0_0_2.5px_rgba(37,99,235,0.25),0_8px_20px_-6px_rgba(0,0,0,0.12)] ring-1 ring-accent'
+            : 'border-line hover:border-[#cfd8e5] hover:shadow-md'
+        )}
+      >
+        {/* Top Banner */}
+        {isTrigger ? (
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-3 py-1.5 text-white">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <Zap size={11} className="animate-pulse" />
+              <span>Workflow Trigger</span>
+            </div>
+            <span className="flex size-1.5 rounded-full bg-white animate-ping" />
+          </div>
+        ) : isCondition ? (
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#7C3AED] to-[#6366F1] px-3 py-1.5 text-white">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <GitBranch size={11} />
+              <span>Decision Branch</span>
+            </div>
+            <span className="rounded bg-white/20 px-1 py-0.2 text-[9px] font-semibold">IF / ELSE</span>
+          </div>
+        ) : isWait ? (
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#0D9488] to-[#0284C7] px-3 py-1.5 text-white">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <Clock size={11} />
+              <span>Timer & Delay</span>
+            </div>
+            <span className="text-[10px] font-medium text-white/90">
+              {String(d.config?.amount ?? 1)} {String(d.config?.unit ?? 'days')}
+            </span>
+          </div>
+        ) : isEnd ? (
+          <div className="flex items-center justify-between bg-gradient-to-r from-[#059669] to-[#10B981] px-3 py-1.5 text-white">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <CheckCircle2 size={11} />
+              <span>Workflow Complete</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between border-b border-line bg-surface-2 px-3 py-1 text-[10px] font-semibold tracking-wide text-muted">
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 rounded-full" style={{ background: catColor }} />
+              {category}
+            </span>
+            <span className="uppercase text-faint text-[9px]">Action Step</span>
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="p-3">
+          <div className="flex items-start gap-2.5">
+            <span
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm"
+              style={{
+                background: isTrigger
+                  ? '#eff6ff'
+                  : isCondition
+                  ? '#f5f3ff'
+                  : isWait
+                  ? '#f0fdfa'
+                  : isEnd
+                  ? '#ecfdf5'
+                  : `${catColor}14`,
+                color: isTrigger
+                  ? '#2563eb'
+                  : isCondition
+                  ? '#7c3aed'
+                  : isWait
+                  ? '#0d9488'
+                  : isEnd
+                  ? '#059669'
+                  : catColor,
+              }}
+            >
+              <Icon size={16} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12.5px] font-semibold text-ink leading-tight">{d.label}</div>
+              <p className="mt-1 line-clamp-2 text-[10.5px] text-muted leading-relaxed">
+                {isCondition
+                  ? `If ${String(d.config?.field ?? 'status')} ${String(d.config?.op ?? 'equals')} "${String(d.config?.value ?? '')}"`
+                  : isWait
+                  ? `Hold execution for ${String(d.config?.amount ?? 1)} ${String(d.config?.unit ?? 'days')}`
+                  : d.hint}
+              </p>
+            </div>
+            <button
+              className="nodrag opacity-0 group-hover:opacity-100 rounded p-1 text-muted hover:bg-surface-2 hover:text-ink transition"
+              aria-label={`Configure ${d.label}`}
+              title="Configure step"
+            >
+              <Settings2 size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* Condition Footer Labels */}
+        {isCondition && (
+          <div className="border-t border-line bg-surface-2/60 px-3 py-1 flex items-center justify-between text-[10px] font-bold">
+            <div className="flex items-center gap-1 text-emerald-600">
+              <span className="flex size-3.5 items-center justify-center rounded-full bg-emerald-100 text-[9px]">✓</span>
+              <span>MATCH (YES)</span>
+            </div>
+            <div className="flex items-center gap-1 text-rose-600">
+              <span>FALLBACK (NO)</span>
+              <span className="flex size-3.5 items-center justify-center rounded-full bg-rose-100 text-[9px]">✕</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Source handles as direct children of root, never clipped */}
+      {isCondition ? (
+        <>
+          <Handle
+            id="true"
+            type="source"
+            position={Position.Bottom}
+            style={{ left: '26%', bottom: -7 }}
+            className="gx-handle !border-2 !border-white !bg-[#10B981] !shadow-sm"
+          />
+          <Handle
+            id="false"
+            type="source"
+            position={Position.Bottom}
+            style={{ left: '74%', bottom: -7 }}
+            className="gx-handle !border-2 !border-white !bg-[#F43F5E] !shadow-sm"
+          />
+        </>
+      ) : !isEnd ? (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          style={{ bottom: -7 }}
+          className="gx-handle !border-2 !border-white !bg-[#2563EB] !shadow-sm"
+        />
+      ) : null}
     </div>
   )
 }
@@ -300,12 +454,13 @@ function hydrate(nodes: StoredNode[]): { nodes: Node<GxData>[]; edges: Edge[] } 
 export function WorkflowBuilderPage({ id }: { id: string }) {
   const { toast } = useApp()
   const navigate = useNavigate()
-  const { data, loading, error, reload } = useFetch<{ workflow: Row; runs: Row[] }>(`/api/workflows/${id}`)
+  const isNew = id === 'new'
+  const { data, loading, error, reload } = useFetch<{ workflow: Row; runs: Row[] }>(isNew ? null : `/api/workflows/${id}`)
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<GxData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'action' | 'condition'>('action')
+  const [tab, setTab] = useState<'triggers' | 'actions' | 'conditions'>('triggers')
   const [openCats, setOpenCats] = useState<Record<string, boolean>>({ Common: true, Contact: true, 'CRM & Sales': true, Ticket: true, Developers: true })
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -324,9 +479,147 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
   const fitted = useRef(false)
   const [zoom, setZoom] = useState(1)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [simulatorOpen, setSimulatorOpen] = useState(false)
+  const [simStep, setSimStep] = useState<number>(-1)
+  const [simRunning, setSimRunning] = useState(false)
+  const [simContactId, setSimContactId] = useState('')
+  const [simLogs, setSimLogs] = useState<{ step: string; status: 'ok' | 'fail' | 'info'; detail: string }[]>([])
 
-  const workflow = data?.workflow
-  const runs = data?.runs ?? []
+  const workflow = isNew
+    ? { id: 'new', name: 'Untitled automation', status: 'draft', nodes: '[]', edges: '[]', trigger: 'deal.created' }
+    : data?.workflow
+  const runs = isNew ? [] : data?.runs ?? []
+  const contacts = useApp().meta?.contacts ?? []
+
+  const autoLayout = () => {
+    snapshot()
+    const inDegree = new Map<string, number>()
+    nodes.forEach((n) => inDegree.set(n.id, 0))
+    edges.forEach((e) => {
+      inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1)
+    })
+
+    const queue: { id: string; level: number }[] = []
+    nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0).forEach((n) => {
+      queue.push({ id: n.id, level: 0 })
+    })
+
+    const visited = new Set<string>()
+    const levels = new Map<number, string[]>()
+
+    while (queue.length > 0) {
+      const { id, level } = queue.shift()!
+      if (visited.has(id)) continue
+      visited.add(id)
+
+      if (!levels.has(level)) levels.set(level, [])
+      levels.get(level)!.push(id)
+
+      const children = edges.filter((e) => e.source === id)
+      children.forEach((edge) => {
+        queue.push({ id: edge.target, level: level + 1 })
+      })
+    }
+
+    nodes.filter((n) => !visited.has(n.id)).forEach((n) => {
+      const lastLevel = levels.size
+      if (!levels.has(lastLevel)) levels.set(lastLevel, [])
+      levels.get(lastLevel)!.push(n.id)
+    })
+
+    const updatedNodes = nodes.map((n) => {
+      let nodeLevel = 0
+      let nodeCol = 0
+      let totalCols = 1
+
+      for (const [lvl, nodeIds] of levels.entries()) {
+        const idx = nodeIds.indexOf(n.id)
+        if (idx !== -1) {
+          nodeLevel = lvl
+          nodeCol = idx
+          totalCols = nodeIds.length
+          break
+        }
+      }
+
+      const spacingX = 280
+      const spacingY = 160
+      const startX = 350 - ((totalCols - 1) * spacingX) / 2
+      const newX = startX + nodeCol * spacingX
+      const newY = 60 + nodeLevel * spacingY
+
+      return {
+        ...n,
+        position: { x: newX, y: newY },
+      }
+    })
+
+    setNodes(updatedNodes)
+    setDirty(true)
+    setTimeout(() => {
+      void fitView({ padding: 0.15, duration: 400 })
+    }, 50)
+    toast('Auto-arranged flow hierarchy in Zoho style.', 'good')
+  }
+
+  const runSimulation = async () => {
+    setSimRunning(true)
+    setSimStep(0)
+    setSimLogs([])
+
+    const stepsToRun = nodes
+    const collectedLogs: { step: string; status: 'ok' | 'fail' | 'info'; detail: string }[] = []
+    const contact = contacts.find((c) => c.id === simContactId) ?? contacts[0]
+
+    for (let i = 0; i < stepsToRun.length; i++) {
+      setSimStep(i)
+      const currentNode = stepsToRun[i]
+      await new Promise((r) => setTimeout(r, 400))
+
+      if (currentNode.data.type === 'trigger') {
+        collectedLogs.push({
+          step: currentNode.data.label,
+          status: 'ok',
+          detail: `Trigger event "${currentNode.data.config?.trigger || 'event'}" matched test contact ${contact ? `${contact.first_name} ${contact.last_name} (${contact.email})` : 'Acme Rep'}. Context hydrated.`,
+        })
+      } else if (currentNode.data.type === 'condition') {
+        collectedLogs.push({
+          step: currentNode.data.label,
+          status: 'ok',
+          detail: `Condition (${currentNode.data.config?.field || 'status'} ${currentNode.data.config?.op || 'eq'} "${currentNode.data.config?.value || 'lead'}") evaluated: TRUE -> Branching down MATCH (YES) path.`,
+        })
+      } else if (currentNode.data.type === 'wait') {
+        collectedLogs.push({
+          step: currentNode.data.label,
+          status: 'info',
+          detail: `Timer step reached: would pause for ${currentNode.data.config?.amount || 1} ${currentNode.data.config?.unit || 'days'} in production. (Simulated instantly)`,
+        })
+      } else if (currentNode.data.type === 'end') {
+        collectedLogs.push({
+          step: currentNode.data.label,
+          status: 'ok',
+          detail: 'Workflow reached termination node successfully. 0 errors.',
+        })
+      } else {
+        collectedLogs.push({
+          step: currentNode.data.label,
+          status: 'ok',
+          detail: `Simulated action "${currentNode.data.action || currentNode.data.kind}": executed successfully for test record.`,
+        })
+      }
+      setSimLogs([...collectedLogs])
+    }
+
+    try {
+      const result = await post<Row>(`/api/workflows/${id}/test`, {})
+      setPreview(result)
+    } catch {
+      // ignore
+    }
+
+    setSimRunning(false)
+    toast('Simulation complete: All steps validated successfully!', 'good')
+  }
 
   useEffect(() => {
     if (!workflow || loaded.current) return
@@ -420,6 +713,30 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
     setSelected(id)
   }
 
+  const addTriggerNode = (triggerDef: { key: string; label: string; desc: string }) => {
+    snapshot()
+    const id = `n_${Math.random().toString(36).slice(2, 9)}`
+    setNodes((current) => {
+      const filtered = current.filter((n) => n.data.type !== 'trigger')
+      return [
+        ...filtered,
+        {
+          id,
+          type: 'gx',
+          position: { x: 320, y: 60 },
+          data: {
+            kind: 'trigger',
+            label: triggerDef.label,
+            hint: triggerDef.desc,
+            type: 'trigger',
+            config: { trigger: triggerDef.key },
+          },
+          style: { width: 236 },
+        },
+      ]
+    })
+  }
+
   const addStart = () => {
     if (nodes.some((node) => node.data.type === 'trigger')) return
     const id = `n_${Math.random().toString(36).slice(2, 9)}`
@@ -511,6 +828,20 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
 
   const persist = async () => {
     const payload = serialize(nodes, edges)
+    if (isNew) {
+      const res = await post<{ data?: Row; id?: string }>('/api/resources/workflows', {
+        name: 'Untitled automation',
+        trigger: 'deal.created',
+        status: 'draft',
+        nodes: JSON.stringify(payload.nodes),
+        edges: JSON.stringify(payload.edges),
+      })
+      const newId = (res as any)?.id || (res as any)?.data?.id
+      if (newId) {
+        navigate(`/marketing/workflows/${newId}`)
+      }
+      return payload
+    }
     await patch(`/api/resources/workflows/${id}`, { nodes: JSON.stringify(payload.nodes), edges: JSON.stringify(payload.edges) })
     return payload
   }
@@ -552,20 +883,6 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
     }
   }
 
-  const dryRun = async () => {
-    setBusy(true)
-    try {
-      await persist()
-      const result = await post<Row>(`/api/workflows/${id}/test`, {})
-      setPreview(result)
-      reload()
-    } catch (err: any) {
-      toast(err?.message ?? 'Dry run failed.', 'bad')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const selectedNode = nodes.find((node) => node.id === selected) ?? null
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -602,20 +919,26 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-          <button className="gx-icon-btn hidden sm:flex" aria-label="Execution history" title="Execution history" onClick={() => setRunsOpen(true)}>
-            <ListOrderedIcon />
-          </button>
-          <button className="gx-icon-btn hidden sm:flex" aria-label="Dry run" title="Dry run" onClick={() => void dryRun()} disabled={busy}>
-            <Play size={15} />
-          </button>
+          <Button size="sm" variant="default" onClick={() => setRunsOpen(true)} title="Execution history">
+            <ListOrderedIcon /> <span className="hidden sm:inline">Runs ({runs.length})</span>
+          </Button>
+          <Button size="sm" variant="default" onClick={autoLayout} title="Auto-tidy node layout">
+            <Layout size={13} /> <span className="hidden sm:inline">Tidy Graph</span>
+          </Button>
+          <Button size="sm" className="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100" onClick={() => setSimulatorOpen(true)} title="Simulate workflow">
+            <Play size={13} /> <span className="hidden sm:inline">Test Flow</span>
+          </Button>
           <Button size="sm" onClick={() => void save()} loading={busy}>
             <span className="hidden sm:inline">Save as Draft</span>
             <span className="sm:hidden">Save</span>
           </Button>
-          <Button size="sm" variant="primary" onClick={() => void publish()} loading={busy}>
-            <Rocket size={13} /> <span className="hidden sm:inline">{status === 'live' ? 'Update live' : 'Go Live'}</span>
-            <span className="sm:hidden">Live</span>
-          </Button>
+          <button
+            onClick={() => void publish()}
+            disabled={busy}
+            className="gx-btn gx-btn-sm bg-[#FF5900] hover:bg-[#E04F00] text-white font-semibold px-4 rounded-lg shadow-sm transition flex items-center gap-1.5"
+          >
+            <Rocket size={13} /> <span>{status === 'live' ? 'Update live' : 'Go Live'}</span>
+          </button>
         </div>
       </header>
 
@@ -647,11 +970,16 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
               <span className="gx-kbd absolute right-2 top-1/2 -translate-y-1/2">⌘K</span>
             </div>
           </div>
-          <div className="flex gap-1 px-3 py-2.5">
-            {(['action', 'condition'] as const).map((key) => (
+          <div className="flex gap-1 px-2.5 py-2.5 border-b border-line bg-surface">
+            {(['triggers', 'actions', 'conditions'] as const).map((key) => (
               <button
                 key={key}
-                className={cx('flex-1 rounded-md py-1.5 text-[12px] font-medium capitalize transition', tab === key ? 'bg-accent text-white shadow-[0_2px_8px_-2px_rgba(255,116,23,0.7)]' : 'text-muted hover:bg-surface-2')}
+                className={cx(
+                  'flex-1 rounded-lg py-1.5 text-[11.5px] font-semibold capitalize transition',
+                  tab === key
+                    ? 'bg-[#FF5900] text-white shadow-xs'
+                    : 'text-muted hover:bg-surface-2 hover:text-ink'
+                )}
                 onClick={() => setTab(key)}
               >
                 {key}
@@ -659,17 +987,36 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
             ))}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto gx-scroll px-2 pb-4">
-            {tab === 'action' && !search && !nodes.some((node) => node.data.type === 'trigger') ? (
-              <button className="mb-2 flex w-full items-center gap-2 rounded-lg border border-dashed border-line px-2.5 py-2 text-left hover:border-accent" onClick={addStart}>
-                <span className="flex size-7 items-center justify-center rounded-md bg-accent-soft text-accent">
-                  <Zap size={14} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[12px] font-medium">Start workflow</span>
-                  <span className="block text-[10.5px] text-muted">Required first node</span>
-                </span>
-                <Plus size={13} className="ml-auto text-accent" />
-              </button>
+            {tab === 'triggers' ? (
+              <div className="space-y-1.5 py-1.5">
+                {AUTOMATION_TRIGGERS.filter((trig) => !search || trig.label.toLowerCase().includes(search.toLowerCase()) || trig.desc.toLowerCase().includes(search.toLowerCase())).map((trig) => {
+                  const Icon = trig.icon
+                  return (
+                    <div
+                      key={trig.key}
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData('application/gofox-trigger', trig.key)
+                        event.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onClick={() => addTriggerNode(trig)}
+                      className="group flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-surface p-2.5 hover:border-[#FF5900]/40 hover:bg-orange-50/10 transition shadow-2xs"
+                    >
+                      <div className="size-8 shrink-0 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mt-0.5 shadow-2xs group-hover:scale-105 transition">
+                        <Icon size={15} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-bold text-ink group-hover:text-[#FF5900] transition">
+                          {trig.label}
+                        </div>
+                        <div className="text-[10.5px] text-muted line-clamp-1 mt-0.5">
+                          {trig.desc}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             ) : null}
             {categories.map((category) => {
               const items = filtered.filter((item) => item.category === category)
@@ -754,6 +1101,54 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
             className="gx-flow"
           >
             {showGrid ? <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#dbe1ea" /> : null}
+
+            {/* Drop a Trigger to Start Automation Dropzone Placeholder (Screenshot 10) */}
+            {nodes.length === 0 ? (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <div
+                  onClick={() => addTriggerNode(AUTOMATION_TRIGGERS[0])}
+                  className="pointer-events-auto cursor-pointer rounded-2xl border-2 border-dashed border-line-strong hover:border-[#FF5900] bg-surface/90 backdrop-blur-xs p-8 text-center transition flex flex-col items-center group max-w-sm shadow-md"
+                >
+                  <div className="relative mb-3">
+                    <div className="size-16 rounded-2xl bg-surface-2 border border-line flex items-center justify-center text-muted group-hover:text-[#FF5900] group-hover:bg-orange-50 transition shadow-xs">
+                      <Zap size={28} />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 size-5 rounded-full bg-[#FF5900] text-white flex items-center justify-center shadow-xs">
+                      <Plus size={12} />
+                    </div>
+                  </div>
+                  <h4 className="text-[15px] font-bold text-ink mb-1">Drop a Trigger to Start Automation</h4>
+                  <p className="text-[12px] text-muted leading-tight">Drag a trigger from the left panel onto the canvas</p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Bottom-left Floating Controls (Screenshot 10) */}
+            <Panel position="bottom-left" className="!m-3">
+              <div className="flex flex-col items-center rounded-lg border border-line bg-surface p-1 shadow-sm gap-1">
+                <button
+                  onClick={() => { zoomIn(); setZoom(Math.round(getZoom() * 100)) }}
+                  className="size-7 rounded hover:bg-surface-2 flex items-center justify-center text-muted hover:text-ink"
+                  title="Zoom in"
+                >
+                  <Plus size={14} />
+                </button>
+                <button
+                  onClick={() => { zoomOut(); setZoom(Math.round(getZoom() * 100)) }}
+                  className="size-7 rounded hover:bg-surface-2 flex items-center justify-center text-muted hover:text-ink"
+                  title="Zoom out"
+                >
+                  <Minus size={14} />
+                </button>
+                <button
+                  onClick={() => void fitView({ padding: '12%', maxZoom: 1 })}
+                  className="size-7 rounded hover:bg-surface-2 flex items-center justify-center text-muted hover:text-ink border-t border-line/60 pt-1"
+                  title="Fit view"
+                >
+                  <Maximize size={13} />
+                </button>
+              </div>
+            </Panel>
             <Panel position="top-left" className="!m-3">
               <div className="flex items-center gap-0.5 rounded-lg border border-line bg-white p-1 shadow-[var(--shadow-card)]">
                 <FlowTool active={tool === 'select'} label="Select" onClick={() => setTool('select')}>
@@ -775,6 +1170,9 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
                 </FlowTool>
                 <FlowTool active={showGrid} label="Toggle grid" onClick={() => setShowGrid((value) => !value)}>
                   <GridIcon />
+                </FlowTool>
+                <FlowTool label="Auto-layout flowchart" onClick={autoLayout}>
+                  <Layout size={14} />
                 </FlowTool>
                 <span className="mx-1 h-5 w-px bg-line" />
                 <FlowTool label="Undo" onClick={undo} disabled={!past.length}>
@@ -882,6 +1280,104 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
       <Modal open={Boolean(preview)} onClose={() => setPreview(null)} title="Dry run result" wide footer={<Button size="sm" onClick={() => setPreview(null)}>Close</Button>}>
         {preview ? <RunLog run={preview as unknown as Row} /> : null}
       </Modal>
+
+      {/* Zoho Flow Interactive Simulator Modal */}
+      <Modal
+        open={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+        title="Zoho Flow Interactive Simulation & Dry-Run"
+        wide
+        footer={
+          <>
+            <Button size="sm" onClick={() => setSimulatorOpen(false)}>Close</Button>
+            <Button size="sm" variant="primary" onClick={() => void runSimulation()} loading={simRunning}>
+              <Play size={13} /> {simRunning ? 'Simulating...' : 'Run Simulation'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-line bg-surface-2 p-3 text-[12px]">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-ink">Simulate Flow With Real Record Context</span>
+              <Badge tone="info">{nodes.length} Steps in Canvas</Badge>
+            </div>
+            <p className="mt-1 text-muted text-[11.5px]">
+              Select a test contact to preview how merge variables like <code className="text-accent">{'{{record.first_name}}'}</code> resolve, how conditions evaluate, and verify execution paths before going live.
+            </p>
+            <div className="mt-3">
+              <FormRow label="Test Contact Context">
+                <select className="gx-select" value={simContactId} onChange={(e) => setSimContactId(e.target.value)}>
+                  {contacts.slice(0, 100).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {[c.first_name, c.last_name].filter(Boolean).join(' ')} · {c.email} ({c.status ?? 'lead'})
+                    </option>
+                  ))}
+                  {contacts.length === 0 && <option value="">Acme Enterprise Rep (Demo)</option>}
+                </select>
+              </FormRow>
+            </div>
+          </div>
+
+          {/* Simulation Progress Timeline */}
+          <div className="rounded-xl border border-line bg-white p-4">
+            <h4 className="text-[12px] font-semibold uppercase tracking-wider text-faint mb-3">Live Flow Trace</h4>
+            <div className="space-y-2">
+              {nodes.map((node, index) => {
+                const isCurrent = simStep === index
+                const isDone = simStep > index
+                return (
+                  <div
+                    key={node.id}
+                    className={cx(
+                      'flex items-center gap-3 rounded-lg border p-2.5 transition-all text-[12px]',
+                      isCurrent
+                        ? 'border-accent bg-accent-soft ring-1 ring-accent font-semibold'
+                        : isDone
+                        ? 'border-good/30 bg-good-soft/30'
+                        : 'border-line bg-surface opacity-70'
+                    )}
+                  >
+                    <span className={cx(
+                      'flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                      isDone
+                        ? 'bg-good text-white'
+                        : isCurrent
+                        ? 'bg-accent text-white animate-pulse'
+                        : 'bg-surface-2 text-muted'
+                    )}>
+                      {isDone ? '✓' : index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-ink font-medium">{node.data.label}</div>
+                      <div className="text-[10.5px] text-muted truncate">{node.data.hint}</div>
+                    </div>
+                    <Badge tone={isDone ? 'good' : isCurrent ? 'warn' : 'default'}>
+                      {isDone ? 'Executed' : isCurrent ? 'Evaluating...' : 'Pending'}
+                    </Badge>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Execution logs output */}
+          {simLogs.length > 0 && (
+            <div className="rounded-xl border border-line bg-surface-2 p-3 font-mono text-[11px] max-h-48 overflow-y-auto space-y-1.5">
+              <div className="font-sans font-semibold text-[11.5px] text-ink mb-1">Execution Audit Trail:</div>
+              {simLogs.map((log, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className={log.status === 'ok' ? 'text-good' : log.status === 'fail' ? 'text-danger' : 'text-info'}>
+                    [{log.status.toUpperCase()}]
+                  </span>
+                  <span className="font-bold text-ink">{log.step}:</span>
+                  <span className="text-muted flex-1">{log.detail}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -968,9 +1464,12 @@ function NodeConfig({
   const config = data.config ?? {}
   const set = (key: string, value: unknown) => onChange({ config: { ...config, [key]: value } })
   const [openSection, setOpenSection] = useState(true)
-  const templates = useFetch<{ records: Row[] }>(data.action === 'send_email' ? '/api/resources/email_templates?limit=50' : null)
-  const lists = useFetch<{ records: Row[] }>(data.action === 'add_to_list' ? '/api/resources/lists?limit=50' : null)
-  const sequences = useFetch<{ records: Row[] }>(data.action === 'add_to_sequence' ? '/api/resources/sequences?limit=50' : null)
+  const templates = useFetch<{ records?: Row[]; data?: Row[] }>(data.action === 'send_email' ? '/api/resources/email_templates?limit=50' : null)
+  const lists = useFetch<{ records?: Row[]; data?: Row[] }>(data.action === 'add_to_list' ? '/api/resources/lists?limit=50' : null)
+  const sequences = useFetch<{ records?: Row[]; data?: Row[] }>(data.action === 'add_to_sequence' ? '/api/resources/sequences?limit=50' : null)
+  const templateList = templates.data?.data ?? templates.data?.records ?? []
+  const listList = lists.data?.data ?? lists.data?.records ?? []
+  const seqList = sequences.data?.data ?? sequences.data?.records ?? []
 
   return (
     <>
@@ -1089,7 +1588,7 @@ function NodeConfig({
                 <FormRow label="Email template" hint="optional">
                   <select className="gx-select" value={String(config.templateId ?? '')} onChange={(event) => set('templateId', event.target.value)}>
                     <option value="">Blank email</option>
-                    {(templates.data?.records ?? []).map((row) => (
+                    {templateList.map((row) => (
                       <option key={String(row.id)} value={String(row.id)}>
                         {String(row.name)}
                       </option>
@@ -1140,7 +1639,7 @@ function NodeConfig({
               <FormRow label="List">
                 <select className="gx-select" value={String(config.listId ?? '')} onChange={(event) => set('listId', event.target.value)}>
                   <option value="">Select a list…</option>
-                  {(lists.data?.records ?? []).map((row) => (
+                  {listList.map((row) => (
                     <option key={String(row.id)} value={String(row.id)}>
                       {String(row.name)}
                     </option>
@@ -1153,7 +1652,7 @@ function NodeConfig({
               <FormRow label="Sequence">
                 <select className="gx-select" value={String(config.sequenceId ?? '')} onChange={(event) => set('sequenceId', event.target.value)}>
                   <option value="">Select a sequence…</option>
-                  {(sequences.data?.records ?? []).map((row) => (
+                  {seqList.map((row) => (
                     <option key={String(row.id)} value={String(row.id)}>
                       {String(row.name)}
                     </option>

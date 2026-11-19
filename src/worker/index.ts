@@ -312,6 +312,7 @@ const DEFAULTS: Record<string, Record<string, unknown>> = {
   companies: { status: 'active' },
   contacts: { status: 'active', score: 0, email_opt_out: 0 },
   leads: { status: 'new', priority: 'medium', source: 'Manual', score: 0, opt_out: 0 },
+  tasks: { status: 'open', priority: 'medium', type: 'task' },
   calls: { direction: 'outbound', status: 'logged' },
   lists: { type: 'static', category: 'General' },
   tickets: { status: 'open', priority: 'medium', channel: 'email', category: 'General' },
@@ -428,17 +429,39 @@ app.get('/api/resources/:entity/:id', async (c) => {
     .bind(c.req.param('id'), user.org_id)
     .first<Record<string, unknown>>()
   if (!row) return fail(c, 'NOT_FOUND', 'Record not found.', 404)
+  const singular = def.singular.toLowerCase()
   const activity = await c.env.DB.prepare(
     `SELECT a.*, u.name AS actor FROM activities a LEFT JOIN users u ON u.id = a.actor_id
-     WHERE a.org_id = ? AND a.entity_type = ? AND a.entity_id = ? ORDER BY a.created_at DESC LIMIT 40`,
+     WHERE a.org_id = ? AND a.entity_id = ? AND (a.entity_type = ? OR a.entity_type = ? OR a.entity_type = ?) ORDER BY a.created_at DESC LIMIT 40`,
   )
-    .bind(user.org_id, c.req.param('entity'), c.req.param('id'))
+    .bind(user.org_id, c.req.param('id'), c.req.param('entity'), def.table, singular)
     .all()
   return c.json({ record: row, activity: activity.results })
 })
 
 app.post('/api/resources/:entity', async (c) => {
   const user = c.get('user')
+  if (c.req.param('entity') === 'activities') {
+    const body = await readBody<{
+      entity_type?: string
+      entity_id?: string
+      activity_type?: string
+      title?: string
+      description?: string
+      summary?: string
+    }>(c)
+    const summary = body.summary || body.description || body.title || 'Note recorded'
+    const type = body.activity_type || 'note'
+    const entityType = body.entity_type || null
+    const entityId = body.entity_id || null
+
+    await logActivity(c.env, user.org_id, user.id, type, entityType, entityId, summary, {
+      title: body.title,
+      description: body.description,
+    })
+
+    return c.json({ ok: true, summary })
+  }
   const def = loadEntity(c.req.param("entity"))
   if (!def) return fail(c, 'NOT_FOUND', 'Unknown resource.', 404)
   const denied = requirePerm(c, def.permission)
@@ -555,7 +578,7 @@ app.post('/api/resources/:entity', async (c) => {
   return c.json({ record }, 201)
 })
 
-app.patch('/api/resources/:entity/:id', async (c) => {
+const handleResourceUpdate = async (c: any) => {
   const user = c.get('user')
   const def = loadEntity(c.req.param("entity"))
   if (!def) return fail(c, 'NOT_FOUND', 'Unknown resource.', 404)
@@ -626,7 +649,131 @@ app.patch('/api/resources/:entity/:id', async (c) => {
     .bind(id, user.org_id)
     .first()
   return c.json({ record })
+}
+
+app.post('/api/resources/:entity/bulk', async (c) => {
+  const user = c.get('user')
+  const def = loadEntity(c.req.param('entity'))
+  if (!def) return fail(c, 'NOT_FOUND', 'Unknown resource.', 404)
+  const body = await readBody<{ action: string; ids?: string[]; tag?: string; status?: string }>(c)
+  const ids = Array.isArray(body.ids) ? body.ids.filter(Boolean) : []
+  if (!ids.length) return fail(c, 'VALIDATION_ERROR', 'No records selected.', 422)
+
+  const denied = requirePerm(c, body.action === 'delete' ? (def.softDelete ? 'data.delete' : def.permission) : def.permission)
+  if (denied) return denied
+
+  const placeholders = ids.map(() => '?').join(', ')
+  const now = nowIso()
+
+  if (body.action === 'delete') {
+    if (def.softDelete) {
+      await c.env.DB.prepare(
+        `UPDATE ${def.table} SET deleted_at = ?, updated_at = ? WHERE org_id = ? AND id IN (${placeholders})`,
+      )
+        .bind(now, now, user.org_id, ...ids)
+        .run()
+    } else {
+      await c.env.DB.prepare(`DELETE FROM ${def.table} WHERE org_id = ? AND id IN (${placeholders})`)
+        .bind(user.org_id, ...ids)
+        .run()
+    }
+    await audit(c.env, user.org_id, user.id, `${def.table}.bulk_delete`, def.table, 'bulk', null, { count: ids.length, ids })
+    return c.json({ ok: true, count: ids.length })
+  }
+
+  if (body.action === 'tag' && body.tag) {
+    for (const id of ids) {
+      const row = await c.env.DB.prepare(`SELECT tags FROM ${def.table} WHERE id = ? AND org_id = ?`)
+        .bind(id, user.org_id)
+        .first<{ tags: string | null }>()
+      const currentTags = (row?.tags ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+      if (!currentTags.includes(body.tag)) {
+        currentTags.push(body.tag)
+        await c.env.DB.prepare(`UPDATE ${def.table} SET tags = ?, updated_at = ? WHERE id = ? AND org_id = ?`)
+          .bind(currentTags.join(', '), now, id, user.org_id)
+          .run()
+      }
+    }
+    return c.json({ ok: true, count: ids.length })
+  }
+
+  if (body.action === 'status' && body.status) {
+    await c.env.DB.prepare(`UPDATE ${def.table} SET status = ?, updated_at = ? WHERE org_id = ? AND id IN (${placeholders})`)
+      .bind(body.status, now, user.org_id, ...ids)
+      .run()
+    return c.json({ ok: true, count: ids.length })
+  }
+
+  return fail(c, 'VALIDATION_ERROR', 'Unknown bulk action.', 422)
 })
+
+app.post('/api/resources/:entity/import', async (c) => {
+  const user = c.get('user')
+  const def = loadEntity(c.req.param('entity'))
+  if (!def) return fail(c, 'NOT_FOUND', 'Unknown resource.', 404)
+  const denied = requirePerm(c, def.permission)
+  if (denied) return denied
+
+  const body = await readBody<{ records: Record<string, unknown>[] }>(c)
+  const records = Array.isArray(body?.records) ? body.records : []
+  if (!records.length) return fail(c, 'VALIDATION_ERROR', 'No records provided for import.', 422)
+
+  let inserted = 0
+  let skipped = 0
+
+  for (const raw of records.slice(0, 500)) {
+    try {
+      const { values, errors } = validateValues(def, raw, false)
+      if (Object.keys(errors).length) {
+        skipped++
+        continue
+      }
+      const uniqueError = await checkUnique(c.env, user.org_id, def, values)
+      if (uniqueError) {
+        skipped++
+        continue
+      }
+
+      const id = uid()
+      const record: Record<string, unknown> = {
+        ...DEFAULTS[def.table],
+        ...values,
+        ...pickExtras(def.table, raw, user),
+        id,
+        org_id: user.org_id,
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }
+      if (def.table === 'contacts' && !record.owner_id) {
+        record.owner_id = user.id
+      }
+      await insertRow(c.env, def.table, record)
+      inserted++
+
+      const trigger = def.table === 'contacts' ? 'contact.created' : def.table === 'leads' ? 'lead.created' : null
+      if (trigger) {
+        await fireTrigger(c.env, user.org_id, trigger, def.table, id, record, user.id)
+      }
+    } catch {
+      skipped++
+    }
+  }
+
+  await audit(c.env, user.org_id, user.id, `${def.table}.bulk_import`, def.table, 'bulk', null, {
+    total: records.length,
+    inserted,
+    skipped,
+  })
+
+  return c.json({ ok: true, count: inserted, skipped, total: records.length })
+})
+
+app.patch('/api/resources/:entity/:id', handleResourceUpdate)
+app.post('/api/resources/:entity/:id', handleResourceUpdate)
+app.put('/api/resources/:entity/:id', handleResourceUpdate)
 
 app.delete('/api/resources/:entity/:id', async (c) => {
   const user = c.get('user')
@@ -662,6 +809,88 @@ app.post('/api/resources/:entity/:id/restore', async (c) => {
     .run()
   await logActivity(c.env, user.org_id, user.id, `${def.table}.restored`, def.table, c.req.param('id'), `${def.singular} restored from trash`)
   return c.json({ ok: true })
+})
+
+app.post('/api/leads/:id/stage', async (c) => {
+  const user = c.get('user')
+  const denied = requirePerm(c, 'crm.write')
+  if (denied) return denied
+  const body = await readBody<{ stage: string }>(c)
+  const stage = String(body.stage ?? '').trim().toLowerCase()
+  const validStages = ['new', 'contacted', 'qualified', 'proposal', 'won', 'lost']
+  if (!validStages.includes(stage)) return fail(c, 'VALIDATION_ERROR', 'Invalid stage.', 422)
+
+  const lead = await c.env.DB.prepare('SELECT id, status FROM leads WHERE id = ? AND org_id = ? AND deleted_at IS NULL')
+    .bind(c.req.param('id'), user.org_id)
+    .first<{ id: string; status: string }>()
+  if (!lead) return fail(c, 'NOT_FOUND', 'Lead not found.', 404)
+
+  await c.env.DB.prepare('UPDATE leads SET status = ?, updated_at = ? WHERE id = ? AND org_id = ?')
+    .bind(stage, nowIso(), lead.id, user.org_id)
+    .run()
+
+  await logActivity(c.env, user.org_id, user.id, 'lead.stage_changed', 'lead', lead.id, `Lead stage moved from ${lead.status} to ${stage}`)
+  return c.json({ ok: true, stage })
+})
+
+app.post('/api/leads/:id/ai-score', async (c) => {
+  const user = c.get('user')
+  const denied = requirePerm(c, 'crm.write')
+  if (denied) return denied
+
+  const lead = await c.env.DB.prepare('SELECT * FROM leads WHERE id = ? AND org_id = ? AND deleted_at IS NULL')
+    .bind(c.req.param('id'), user.org_id)
+    .first<Record<string, unknown>>()
+  if (!lead) return fail(c, 'NOT_FOUND', 'Lead not found.', 404)
+
+  let score = 30
+  const reasons: string[] = []
+
+  if (lead.email && !String(lead.email).includes('gmail') && !String(lead.email).includes('yahoo')) {
+    score += 20
+    reasons.push('Corporate business email domain')
+  }
+  if (lead.company_name) {
+    score += 15
+    reasons.push('Verified company association')
+  }
+  const title = String(lead.job_title ?? '').toLowerCase()
+  if (title.includes('director') || title.includes('vp') || title.includes('head') || title.includes('chief') || title.includes('lead')) {
+    score += 20
+    reasons.push('Decision maker / leadership designation')
+  } else if (title) {
+    score += 10
+    reasons.push('Professional role identified')
+  }
+  if (Number(lead.value ?? 0) > 5000) {
+    score += 15
+    reasons.push('High deal potential value')
+  }
+  if (lead.phone) {
+    score += 10
+    reasons.push('Direct phone contact provided')
+  }
+
+  score = Math.min(98, Math.max(25, score))
+
+  await c.env.DB.prepare('UPDATE leads SET score = ?, updated_at = ? WHERE id = ? AND org_id = ?')
+    .bind(score, nowIso(), lead.id, user.org_id)
+    .run()
+
+  await logActivity(c.env, user.org_id, user.id, 'lead.ai_scored', 'lead', String(lead.id), `AI score updated to ${score}/100`)
+
+  return c.json({
+    ok: true,
+    score,
+    intent: score > 75 ? 'High Intent' : score > 50 ? 'Medium Intent' : 'Nurture Required',
+    reasons,
+    recommendation:
+      score > 75
+        ? 'High priority lead. Recommended immediate executive follow-up and proposal scheduling.'
+        : score > 50
+          ? 'Good engagement signals. Recommend qualifying budget and decision timeline this week.'
+          : 'Early interest. Enroll in automated marketing drip campaign.',
+  })
 })
 
 // ------------------------------------------------------------- lead convert
@@ -907,6 +1136,11 @@ app.post('/api/pages/:id/publish', async (c) => {
 // ------------------------------------------------------------- list members
 app.get('/api/lists/:id/members', async (c) => {
   const user = c.get('user')
+  const list = await c.env.DB.prepare('SELECT id FROM lists WHERE id = ? AND org_id = ? AND deleted_at IS NULL')
+    .bind(c.req.param('id'), user.org_id)
+    .first()
+  if (!list) return fail(c, 'NOT_FOUND', 'List not found.', 404)
+
   const { results } = await c.env.DB.prepare(
     `SELECT m.id AS membership_id, m.entity_type, c.id, c.first_name, c.last_name, c.email, c.email_opt_out, c.status
      FROM list_members m JOIN contacts c ON c.id = m.entity_id AND c.org_id = m.org_id
@@ -924,6 +1158,11 @@ app.post('/api/lists/:id/members', async (c) => {
   const user = c.get('user')
   const denied = requirePerm(c, 'crm.write')
   if (denied) return denied
+  const list = await c.env.DB.prepare('SELECT id FROM lists WHERE id = ? AND org_id = ? AND deleted_at IS NULL')
+    .bind(c.req.param('id'), user.org_id)
+    .first()
+  if (!list) return fail(c, 'NOT_FOUND', 'List not found.', 404)
+
   const body = await readBody<{ contact_ids?: string[] }>(c)
   const ids = Array.isArray(body.contact_ids) ? body.contact_ids.slice(0, 500) : []
   if (!ids.length) return fail(c, 'VALIDATION_ERROR', 'Choose at least one contact.', 422)
@@ -955,6 +1194,11 @@ app.delete('/api/lists/:id/members/:membershipId', async (c) => {
   const user = c.get('user')
   const denied = requirePerm(c, 'crm.write')
   if (denied) return denied
+  const list = await c.env.DB.prepare('SELECT id FROM lists WHERE id = ? AND org_id = ? AND deleted_at IS NULL')
+    .bind(c.req.param('id'), user.org_id)
+    .first()
+  if (!list) return fail(c, 'NOT_FOUND', 'List not found.', 404)
+
   await c.env.DB.prepare('DELETE FROM list_members WHERE id = ? AND list_id = ? AND org_id = ?')
     .bind(c.req.param('membershipId'), c.req.param('id'), user.org_id)
     .run()
@@ -1280,6 +1524,52 @@ app.get('/api/activities', async (c) => {
   return c.json({ data: results })
 })
 
+app.post('/api/activities', async (c) => {
+  const user = c.get('user')
+  const body = await readBody<{
+    entity_type?: string
+    entity_id?: string
+    activity_type?: string
+    title?: string
+    description?: string
+    summary?: string
+  }>(c)
+  const summary = body.summary || body.description || body.title || 'Note recorded'
+  const type = body.activity_type || 'note'
+  const entityType = body.entity_type || null
+  const entityId = body.entity_id || null
+
+  await logActivity(c.env, user.org_id, user.id, type, entityType, entityId, summary, {
+    title: body.title,
+    description: body.description,
+  })
+
+  return c.json({ ok: true, summary })
+})
+
+app.post('/api/resources/activities', async (c) => {
+  const user = c.get('user')
+  const body = await readBody<{
+    entity_type?: string
+    entity_id?: string
+    activity_type?: string
+    title?: string
+    description?: string
+    summary?: string
+  }>(c)
+  const summary = body.summary || body.description || body.title || 'Note recorded'
+  const type = body.activity_type || 'note'
+  const entityType = body.entity_type || null
+  const entityId = body.entity_id || null
+
+  await logActivity(c.env, user.org_id, user.id, type, entityType, entityId, summary, {
+    title: body.title,
+    description: body.description,
+  })
+
+  return c.json({ ok: true, summary })
+})
+
 app.get('/api/audit', async (c) => {
   const denied = requirePerm(c, 'audit.read')
   if (denied) return denied
@@ -1324,7 +1614,7 @@ app.get('/api/search', async (c) => {
   const q = (c.req.query('q') ?? '').trim()
   if (q.length < 2) return c.json({ groups: [] })
   const like = `%${q}%`
-  const [companies, contacts, leads, deals, tasks, tickets, campaigns, documents, activities] = await Promise.all([
+  const [companies, contacts, leads, deals, tasks, tickets, campaigns, documents, activities, workflows, emails] = await Promise.all([
     c.env.DB.prepare(`SELECT id, name AS label, domain AS sub FROM companies WHERE org_id = ? AND deleted_at IS NULL AND (name LIKE ? OR domain LIKE ?) LIMIT 5`).bind(user.org_id, like, like).all(),
     c.env.DB.prepare(`SELECT id, first_name || ' ' || COALESCE(last_name,'') AS label, email AS sub FROM contacts WHERE org_id = ? AND deleted_at IS NULL AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ?) LIMIT 5`).bind(user.org_id, like, like, like).all(),
     c.env.DB.prepare(`SELECT id, first_name || ' ' || COALESCE(last_name,'') AS label, company_name AS sub FROM leads WHERE org_id = ? AND deleted_at IS NULL AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR company_name LIKE ?) LIMIT 5`).bind(user.org_id, like, like, like, like).all(),
@@ -1334,6 +1624,8 @@ app.get('/api/search', async (c) => {
     c.env.DB.prepare(`SELECT id, name AS label, channel || ' · ' || status AS sub FROM campaigns WHERE org_id = ? AND deleted_at IS NULL AND name LIKE ? LIMIT 4`).bind(user.org_id, like).all(),
     c.env.DB.prepare(`SELECT id, COALESCE(number, doc_type) AS label, doc_type || ' · ' || status AS sub FROM documents WHERE org_id = ? AND (number LIKE ? OR doc_type LIKE ?) LIMIT 4`).bind(user.org_id, like, like).all(),
     c.env.DB.prepare(`SELECT id, summary AS label, type AS sub FROM activities WHERE org_id = ? AND summary LIKE ? ORDER BY created_at DESC LIMIT 4`).bind(user.org_id, like).all(),
+    c.env.DB.prepare(`SELECT id, name AS label, (module || ' · ' || status) AS sub FROM workflows WHERE org_id = ? AND deleted_at IS NULL AND name LIKE ? LIMIT 4`).bind(user.org_id, like).all(),
+    c.env.DB.prepare(`SELECT id, name AS label, (category || ' · ' || status) AS sub FROM email_templates WHERE org_id = ? AND deleted_at IS NULL AND (name LIKE ? OR subject LIKE ?) LIMIT 4`).bind(user.org_id, like, like).all(),
   ])
   const groups = [
     { type: 'companies', href: '/companies', items: companies.results },
@@ -1343,6 +1635,8 @@ app.get('/api/search', async (c) => {
     { type: 'tasks', href: '/sales/tasks', items: tasks.results },
     { type: 'tickets', href: '/support/tickets', items: tickets.results },
     { type: 'campaigns', href: '/marketing/campaigns', items: campaigns.results },
+    { type: 'workflows', href: '/marketing/workflows', items: workflows.results },
+    { type: 'emails', href: '/marketing/emails', items: emails.results },
     { type: 'documents', href: '/sales/quotes', items: documents.results },
     { type: 'activities', href: '/marketing/activities', items: activities.results },
   ].filter((g) => g.items.length)
@@ -2132,6 +2426,35 @@ app.post('/api/email/render', async (c) => {
     availableVariables: EMAIL_VARIABLES,
     missing: [...new Set([...renderedSubject.missing, ...renderedHtml.missing, ...renderedText.missing])],
   })
+})
+
+/** Stripo Plugin Authentication Proxy */
+app.post('/api/stripo/auth', async (c) => {
+  const body = await readBody<{ pluginId?: string; secretKey?: string }>(c)
+  const pluginId = String(body.pluginId ?? '').trim()
+  const secretKey = String(body.secretKey ?? '').trim()
+
+  if (!pluginId || !secretKey) {
+    return fail(c, 'INVALID_INPUT', 'Both Plugin ID and Secret Key are required to authenticate with Stripo.', 400)
+  }
+
+  try {
+    const res = await fetch('https://plugins.stripo.email/api/v1/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pluginId, secretKey }),
+    })
+
+    if (!res.ok) {
+      const errText = await res.text()
+      return fail(c, 'STRIPO_AUTH_FAILED', `Stripo auth failed (${res.status}): ${errText}`, 401)
+    }
+
+    const data = (await res.json()) as any
+    return c.json({ success: true, token: data.token ?? data })
+  } catch (err: any) {
+    return fail(c, 'STRIPO_CONNECT_ERROR', err?.message ?? 'Failed to connect to Stripo server', 502)
+  }
 })
 
 // ------------------------------------------------------------------- users

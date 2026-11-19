@@ -9,6 +9,19 @@ import {
   type ReactNode,
 } from 'react'
 import { ApiError, get, patch, post, type Row } from './api'
+import {
+  type ThemeConfig,
+  applyThemeToDom,
+  loadSavedThemeConfig,
+  saveThemeConfig,
+} from './theme'
+import {
+  type LocaleCode,
+  applyLocaleToDom,
+  getSavedLocale,
+  saveLocale,
+  translate,
+} from './i18n'
 
 export type Me = {
   id: string
@@ -104,6 +117,11 @@ type AppValue = {
   markRead: (id?: string) => Promise<void>
   toggleTheme: () => Promise<void>
   dark: boolean
+  themeConfig: ThemeConfig
+  updateThemeConfig: (partial: Partial<ThemeConfig>) => void
+  locale: LocaleCode
+  updateLocale: (code: LocaleCode) => void
+  t: (key: string, fallback?: string) => string
 }
 
 const AppContext = createContext<AppValue | null>(null)
@@ -115,8 +133,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [notifications, setNotifications] = useState<Row[]>([])
+  const [themeConfig, setThemeConfigState] = useState<ThemeConfig>(() => loadSavedThemeConfig())
+  const [locale, setLocaleState] = useState<LocaleCode>(() => getSavedLocale())
   const toastId = useRef(0)
   const sessionChecked = useRef(false)
+
+  // Initialize theme and locale on DOM mount
+  useEffect(() => {
+    applyThemeToDom(themeConfig)
+    applyLocaleToDom(locale)
+  }, [themeConfig, locale])
+
+  const updateThemeConfig = useCallback((partial: Partial<ThemeConfig>) => {
+    setThemeConfigState((curr) => {
+      const next: ThemeConfig = { ...curr, ...partial }
+      applyThemeToDom(next)
+      saveThemeConfig(next)
+      return next
+    })
+  }, [])
+
+  const updateLocale = useCallback((code: LocaleCode) => {
+    setLocaleState(code)
+    saveLocale(code)
+    applyLocaleToDom(code)
+  }, [])
+
+  const t = useCallback((key: string, fallback?: string) => {
+    return translate(key, locale, fallback)
+  }, [locale])
 
   const toast = useCallback((message: string, tone: Toast['tone'] = 'info') => {
     const id = ++toastId.current
@@ -248,16 +293,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const toggleTheme = useCallback(async () => {
-    if (!me) return
-    const next = me.theme === 'dark' ? 'light' : 'dark'
-    setMe({ ...me, theme: next })
-    applyTheme(next)
-    try {
-      await patch('/api/auth/profile', { theme: next })
-    } catch (error) {
-      toast(error instanceof ApiError ? error.message : 'Could not save the theme preference', 'bad')
+    const next = themeConfig.mode === 'dark' ? 'light' : 'dark'
+    updateThemeConfig({ mode: next })
+    if (me) {
+      setMe({ ...me, theme: next })
+      try {
+        await patch('/api/auth/profile', { theme: next })
+      } catch (error) {
+        toast(error instanceof ApiError ? error.message : 'Could not save the theme preference', 'bad')
+      }
     }
-  }, [me, applyTheme, toast])
+  }, [me, themeConfig.mode, updateThemeConfig, toast])
 
   const unread = useMemo(() => notifications.filter((n) => !n.read_at).length, [notifications])
 
@@ -280,9 +326,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshNotifications,
       markRead,
       toggleTheme,
-      dark: me?.theme === 'dark',
+      dark: themeConfig.mode === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')),
+      themeConfig,
+      updateThemeConfig,
+      locale,
+      updateLocale,
+      t,
     }),
-    [me, meta, schema, loading, login, loginWithToken, logout, refreshMe, refreshMeta, toast, toasts, dismiss, notifications, unread, refreshNotifications, markRead, toggleTheme],
+    [me, meta, schema, loading, login, loginWithToken, logout, refreshMe, refreshMeta, toast, toasts, dismiss, notifications, unread, refreshNotifications, markRead, toggleTheme, themeConfig, updateThemeConfig, locale, updateLocale, t],
   )
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

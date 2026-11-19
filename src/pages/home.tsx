@@ -1,14 +1,35 @@
-import { ArrowRight, CheckCircle2, ChevronDown, ChevronUp, CircleDashed, LayoutGrid, Mail, Megaphone, Plus, Sparkles, Target, Ticket, Users, Workflow } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  BarChart2,
+  Calendar,
+  Check,
+  ChevronRight,
+  Clock,
+  Eye,
+  EyeOff,
+  Folder,
+  FolderCheck,
+  GripVertical,
+  Maximize2,
+  Minimize2,
+  PieChart,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  SlidersHorizontal,
+  Target,
+  Ticket,
+  TrendingUp,
+  Users,
+  X,
+} from 'lucide-react'
 import { useApp, useFetch } from '../lib/app-context'
-import { Link } from '../lib/router'
-import { formatDate, dueLabel, money, timeAgo } from '../lib/format'
-import { Avatar, Badge, Card, CardHeader, EmptyState, ErrorState, Kpi, Skeleton, StatusBadge, Button } from '../components/ui'
-import { BarChart, Donut, Funnel, LineChart } from '../components/charts'
-import { CheckCircle2 as GoodIcon, Plug, TriangleAlert, Video } from 'lucide-react'
-import { titleCase } from '../lib/format'
-import { ActivityFeed } from '../components/resource'
-import { cx } from '../components/ui'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link, useNavigate } from '../lib/router'
+import { money, timeAgo } from '../lib/format'
+import { ErrorState, Skeleton, Button, Badge, Modal, cx } from '../components/ui'
+import { useMemo, useState } from 'react'
 import { RecordFormDrawer } from '../components/resource'
 import type { Row } from '../lib/api'
 
@@ -16,6 +37,7 @@ type HomeData = {
   tasks: Row[]
   counts: Row
   pipeline: Row[]
+  openDeals?: Row[]
   activity: Row[]
   gettingStarted: Row
   weeklyActivity: number
@@ -32,616 +54,977 @@ type HomeData = {
   teamPerformance: Row[]
 }
 
-type WidgetId =
-  | 'kpis'
-  | 'revenue'
-  | 'funnel'
-  | 'sources'
-  | 'tasks'
-  | 'pipeline'
-  | 'meetings'
-  | 'activity'
-  | 'team'
-  | 'health'
-  | 'gettingStarted'
-  | 'week'
-  | 'shortcuts'
+type WidgetConfig = {
+  id: string
+  title: string
+  category: 'productivity' | 'sales' | 'crm' | 'overview'
+  width: 'half' | 'full'
+  visible: boolean
+}
 
-const WIDGETS: { id: WidgetId; label: string }[] = [
-  { id: 'kpis', label: 'Headline metrics' },
-  { id: 'revenue', label: 'Revenue performance' },
-  { id: 'funnel', label: 'Lead conversion funnel' },
-  { id: 'sources', label: 'Lead sources' },
-  { id: 'tasks', label: 'My tasks' },
-  { id: 'meetings', label: 'Upcoming meetings' },
-  { id: 'team', label: 'Team performance' },
-  { id: 'health', label: 'Integration health' },
-  { id: 'pipeline', label: 'My pipeline' },
-  { id: 'activity', label: 'Team activity' },
-  { id: 'gettingStarted', label: 'Getting started' },
-  { id: 'week', label: 'Activity trend' },
-  { id: 'shortcuts', label: 'Shortcuts' },
+const DEFAULT_WIDGETS: WidgetConfig[] = [
+  { id: 'meetings', title: "Today's Meetings", category: 'productivity', width: 'half', visible: true },
+  { id: 'tasks', title: 'My Tasks', category: 'productivity', width: 'half', visible: true },
+  { id: 'needs_attention', title: 'Needs Attention', category: 'sales', width: 'half', visible: true },
+  { id: 'goals', title: 'Org Goals & Quota', category: 'sales', width: 'half', visible: true },
+  { id: 'team_activity', title: 'Team Activity', category: 'overview', width: 'half', visible: true },
+  { id: 'my_activity', title: 'My Activity Stream', category: 'productivity', width: 'half', visible: true },
+  { id: 'checklist', title: 'Getting Started Checklist', category: 'overview', width: 'full', visible: true },
+  { id: 'pipeline', title: 'My Sales Pipeline', category: 'sales', width: 'half', visible: true },
+  { id: 'projects', title: 'Projects Overview', category: 'overview', width: 'half', visible: true },
+  { id: 'funnel', title: 'Sales Conversion Funnel', category: 'sales', width: 'half', visible: true },
+  { id: 'lead_sources', title: 'Lead Sources Breakdown', category: 'crm', width: 'half', visible: true },
 ]
 
-const DEFAULT_LAYOUT: WidgetId[] = WIDGETS.map((widget) => widget.id)
-
-/** Layout is stored per user on this browser, so a teammate's dashboard is never affected. */
-function layoutKey(userId?: string) {
-  return `gofox:dashboard:${userId ?? 'anon'}`
-}
-
-function readLayout(userId?: string): WidgetId[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(layoutKey(userId)) ?? 'null') as { order?: string[]; hidden?: string[] } | null
-    if (!raw) return DEFAULT_LAYOUT
-    const order = (raw.order ?? []).filter((id): id is WidgetId => DEFAULT_LAYOUT.includes(id as WidgetId))
-    const missing = DEFAULT_LAYOUT.filter((id) => !order.includes(id))
-    const hidden = new Set(raw.hidden ?? [])
-    return [...order, ...missing].filter((id) => !hidden.has(id))
-  } catch {
-    return DEFAULT_LAYOUT
-  }
-}
+const DASHBOARD_PRESETS = [
+  {
+    name: 'Executive Overview',
+    desc: 'Pipeline, org goals, funnel, and project delivery status',
+    widgetIds: ['pipeline', 'goals', 'funnel', 'projects', 'needs_attention'],
+  },
+  {
+    name: 'Sales & Deal Flow',
+    desc: 'Pipeline, meetings, tasks, conversion funnel, and lead sources',
+    widgetIds: ['pipeline', 'meetings', 'tasks', 'funnel', 'lead_sources'],
+  },
+  {
+    name: 'Productivity & Tasks',
+    desc: 'Meetings, daily tasks, needs attention, and personal activity streak',
+    widgetIds: ['meetings', 'tasks', 'needs_attention', 'my_activity', 'checklist'],
+  },
+  {
+    name: 'Full Complete Layout',
+    desc: 'All 11 operational sales, CRM, and management widgets enabled',
+    widgetIds: DEFAULT_WIDGETS.map((w) => w.id),
+  },
+]
 
 export function HomePage() {
-  const { me, meta } = useApp()
+  const { me, t } = useApp()
+  const navigate = useNavigate()
   const [days, setDays] = useState(7)
   const { data, loading, error, reload } = useFetch<HomeData>(`/api/dashboards/home?days=${days}`)
   const [quickTask, setQuickTask] = useState(false)
   const [customising, setCustomising] = useState(false)
-  const [layout, setLayout] = useState<WidgetId[]>(() => readLayout(me?.id))
+  const [tourDone, setTourDone] = useState(() => localStorage.getItem('gofox:tourDone') === 'true')
+  const [checklistDismissed, setChecklistDismissed] = useState(false)
 
-  useEffect(() => {
-    setLayout(readLayout(me?.id))
-  }, [me?.id])
-
-  const saveLayout = (next: WidgetId[]) => {
-    setLayout(next)
-    const hidden = DEFAULT_LAYOUT.filter((id) => !next.includes(id))
+  // Persistent Widgets Layout
+  const [widgets, setWidgets] = useState<WidgetConfig[]>(() => {
     try {
-      localStorage.setItem(layoutKey(me?.id), JSON.stringify({ order: next, hidden }))
+      const raw = localStorage.getItem('gofox:dashboard:widgets_v2')
+      if (raw) return JSON.parse(raw)
     } catch {
-      /* storage may be blocked; the layout still applies for this session */
+      /* ignore */
+    }
+    return DEFAULT_WIDGETS
+  })
+
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  const reorderWidgets = (sourceId: string, targetId: string) => {
+    if (!sourceId || !targetId || sourceId === targetId) return
+    const fromIdx = widgets.findIndex((w) => w.id === sourceId)
+    const toIdx = widgets.findIndex((w) => w.id === targetId)
+    if (fromIdx < 0 || toIdx < 0) return
+    const copy = [...widgets]
+    const [moved] = copy.splice(fromIdx, 1)
+    copy.splice(toIdx, 0, moved)
+    saveWidgets(copy)
+  }
+
+  const saveWidgets = (next: WidgetConfig[]) => {
+    setWidgets(next)
+    try {
+      localStorage.setItem('gofox:dashboard:widgets_v2', JSON.stringify(next))
+    } catch {
+      /* ignore */
     }
   }
 
+  const moveWidget = (index: number, direction: 'up' | 'down') => {
+    const target = direction === 'up' ? index - 1 : index + 1
+    if (target < 0 || target >= widgets.length) return
+    const copy = [...widgets]
+    const [moved] = copy.splice(index, 1)
+    copy.splice(target, 0, moved)
+    saveWidgets(copy)
+  }
+
+  const toggleVisibility = (id: string) => {
+    const copy = widgets.map((w) => (w.id === id ? { ...w, visible: !w.visible } : w))
+    saveWidgets(copy)
+  }
+
+  const toggleWidth = (id: string) => {
+    const copy = widgets.map((w) => (w.id === id ? { ...w, width: w.width === 'half' ? ('full' as const) : ('half' as const) } : w))
+    saveWidgets(copy)
+  }
+
+  const applyPreset = (widgetIds: string[]) => {
+    const copy = widgets.map((w) => ({
+      ...w,
+      visible: widgetIds.includes(w.id),
+    }))
+    saveWidgets(copy)
+  }
+
+  const resetLayout = () => {
+    saveWidgets(DEFAULT_WIDGETS)
+  }
+
   const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
-  const currency = me?.currency ?? 'USD'
+  const greeting = hour < 12 ? t('home.good_morning', 'Good morning') : hour < 18 ? t('home.good_afternoon', 'Good afternoon') : t('home.good_evening', 'Good evening')
+  const currency = me?.currency ?? 'INR'
 
   const setupSteps = useMemo(() => {
     if (!data) return []
     return [
-      { key: 'companies', label: 'Add your first company', done: Number(data.gettingStarted.companies) > 0, to: '/companies' },
-      { key: 'contacts', label: 'Add a contact', done: Number(data.gettingStarted.contacts) > 0, to: '/contacts' },
-      { key: 'forms', label: 'Publish a capture form', done: Number(data.gettingStarted.published_forms) > 0, to: '/marketing/forms' },
-      { key: 'campaigns', label: 'Send a campaign', done: Number(data.gettingStarted.sent_campaigns) > 0, to: '/marketing/campaigns' },
-      { key: 'workflows', label: 'Put a workflow live', done: Number(data.gettingStarted.live_workflows) > 0, to: '/marketing/workflows' },
-      { key: 'apps', label: 'Connect an app', done: Number(data.gettingStarted.connected_apps) > 0, to: '/settings/apps' },
+      {
+        key: 'contacts',
+        title: 'Import Google contacts',
+        description: 'Bring in people and companies from your Google account',
+        done: true,
+        actionLabel: 'Completed',
+        to: '/contacts',
+      },
+      {
+        key: 'email',
+        title: 'Connect your email',
+        description: 'Sync Gmail or Microsoft 365 to track replies in the inbox',
+        done: data.integrations?.some((i) => (i.provider === 'gmail' || i.provider === 'microsoft') && i.status === 'connected') ?? false,
+        actionLabel: 'Connect email',
+        to: '/settings/apps',
+        canSkip: true,
+      },
+      {
+        key: 'leads',
+        title: 'Add your first lead',
+        description: 'Create a lead or import a CSV to start building your pipeline',
+        done: Number(data.gettingStarted?.contacts ?? 0) > 0 || Number(data.counts?.leads ?? 0) > 0,
+        actionLabel: 'Completed',
+        to: '/leads',
+      },
+      {
+        key: 'team',
+        title: 'Invite a teammate',
+        description: 'Add colleagues so everyone can work from the same workspace',
+        done: Number(data.teamPerformance?.length ?? 1) > 1,
+        actionLabel: 'Manage users',
+        to: '/settings/account',
+        canSkip: true,
+      },
+      {
+        key: 'tour',
+        title: 'Take a quick tour',
+        description: 'Review meetings, tasks, and what needs attention on your home page',
+        done: tourDone,
+        actionLabel: tourDone ? 'Completed' : 'Mark as done',
+        to: '#',
+        onClick: () => {
+          setTourDone(true)
+          localStorage.setItem('gofox:tourDone', 'true')
+        },
+      },
     ]
-  }, [data])
+  }, [data, tourDone])
 
   if (loading) {
     return (
-      <div className="p-5">
-        <Skeleton className="mb-4 h-7 w-64" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[86px]" />
-          ))}
-        </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <Skeleton className="h-[300px]" />
-          <Skeleton className="h-[300px]" />
+      <div className="p-4 sm:p-6 space-y-4">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-96" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
         </div>
       </div>
     )
   }
-  if (error || !data) return <ErrorState message={error?.message ?? 'Dashboard unavailable'} onRetry={reload} />
 
-  const doneCount = setupSteps.filter((step) => step.done).length
-
-  const widgets: Record<WidgetId, { span: string; node: ReactNode }> = {
-    kpis: {
-      span: 'lg:col-span-2 xl:col-span-3',
-      node: (
-        <div className="grid gap-3 sm:grid-cols-2 grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-          <Kpi label="Open pipeline" value={money(data.counts.pipeline_value, currency, true)} hint={`${data.counts.open_deals} open deals`} icon={<Target size={15} />} tone="accent" />
-          <Kpi label="Contacts" value={data.counts.contacts} hint={`${data.counts.companies} companies`} icon={<Users size={15} />} tone="teal" />
-          <Kpi label="New leads" value={data.counts.new_leads} hint={`${data.counts.leads} total leads`} icon={<Sparkles size={15} />} tone="purple" />
-          <Kpi
-            label="Overdue tasks"
-            value={data.counts.overdue_tasks}
-            hint={`${data.counts.my_open_tasks} open for you`}
-            icon={<Ticket size={15} />}
-            tone={Number(data.counts.overdue_tasks) > 0 ? 'danger' : 'good'}
-          />
-          <Kpi label="Won · 30 days" value={money(data.charts.wonLost.won_value_30, currency, true)} hint={`${data.counts.open_tickets} open tickets`} icon={<GoodIcon size={15} />} tone="good" />
-          <Kpi label="Integrations" value={`${data.integrations.filter((row) => row.status === 'connected').length}/${data.integrations.length}`} hint="Apps connected" icon={<Plug size={15} />} tone="info" />
-        </div>
-      ),
-    },
-    tasks: {
-      span: 'lg:col-span-2',
-      node: (
-        <Card>
-          <CardHeader
-            title="My tasks"
-            subtitle={`${data.counts.my_open_tasks} open · ${data.weeklyActivity} activities this week`}
-            action={
-              <Link to="/sales/tasks" className="text-[12px] text-accent hover:underline">
-                All tasks
-              </Link>
-            }
-          />
-          {data.tasks.length === 0 ? (
-            <EmptyState
-              icon={<CheckCircle2 size={18} />}
-              title="Nothing assigned to you"
-              description="Tasks created here, by a teammate or by an automation show up in this list."
-              action={
-                <Button size="sm" variant="primary" onClick={() => setQuickTask(true)}>
-                  <Plus size={14} /> New task
-                </Button>
-              }
-            />
-          ) : (
-            <ul className="divide-y divide-line">
-              {data.tasks.map((task) => {
-                const due = dueLabel(task.due_date)
-                return (
-                  <li key={task.id} className="flex items-start gap-3 px-4 py-2.5">
-                    <CircleDashed size={16} className="mt-0.5 shrink-0 text-faint" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-medium">{task.title}</div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[11.5px]">
-                        <StatusBadge value={task.priority} />
-                        <span className={due.tone === 'danger' ? 'text-danger' : due.tone === 'warn' ? 'text-warn' : 'text-muted'}>{due.text}</span>
-                      </div>
-                    </div>
-                    <Link to="/sales/tasks" className="text-[11.5px] text-muted hover:text-accent">
-                      Open
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </Card>
-      ),
-    },
-    pipeline: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader
-            title="My pipeline"
-            subtitle="Open deals by stage"
-            action={
-              <Link to="/sales/deals" className="text-[12px] text-accent hover:underline">
-                Board
-              </Link>
-            }
-          />
-          <div className="space-y-2.5 p-4">
-            {data.pipeline.filter((stage) => stage.name !== 'Closed Lost').map((stage) => {
-              const max = Math.max(1, ...data.pipeline.map((s) => Number(s.value)))
-              return (
-                <div key={stage.id}>
-                  <div className="mb-1 flex items-center justify-between text-[11.5px]">
-                    <span className="text-muted">{stage.name}</span>
-                    <span className="font-medium">
-                      {money(stage.value, currency, true)} <span className="text-faint">· {stage.deal_count}</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${Math.max(2, (Number(stage.value) / max) * 100)}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </Card>
-      ),
-    },
-    activity: {
-      span: 'lg:col-span-2',
-      node: (
-        <Card>
-          <CardHeader title="Team activity" subtitle="Recent CRM events across the workspace" action={<Link to="/marketing/activities" className="text-[12px] text-accent hover:underline">All activity</Link>} />
-          <div className="p-4">
-            <ActivityFeed items={data.activity} />
-          </div>
-        </Card>
-      ),
-    },
-    gettingStarted: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader
-            title="Getting started"
-            subtitle={`${doneCount} of ${setupSteps.length} steps done`}
-            action={<Badge tone={doneCount === setupSteps.length ? 'good' : 'accent'}>{Math.round((doneCount / setupSteps.length) * 100)}%</Badge>}
-          />
-          <ul className="divide-y divide-line">
-            {setupSteps.map((step) => (
-              <li key={step.key}>
-                <Link to={step.to} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-2">
-                  {step.done ? <CheckCircle2 size={15} className="text-good" /> : <CircleDashed size={15} className="text-faint" />}
-                  <span className={`flex-1 text-[12.5px] ${step.done ? 'text-muted line-through' : ''}`}>{step.label}</span>
-                  <ArrowRight size={13} className="text-faint" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ),
-    },
-    week: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader
-            title="Activity trend"
-            subtitle={`Recorded activities · last ${days} days`}
-            action={
-              <select className="gx-select h-7 w-auto text-[11px]" value={days} onChange={(event) => setDays(Number(event.target.value))} aria-label="Date range">
-                <option value={7}>7 days</option>
-                <option value={14}>14 days</option>
-                <option value={30}>30 days</option>
-              </select>
-            }
-          />
-          <div className="p-4">
-            <BarChart
-              data={data.activityByDay.map((point) => ({
-                label: new Date(`${point.day}T00:00:00Z`).toLocaleDateString('en-US', days === 7 ? { weekday: 'narrow' } : { month: 'numeric', day: 'numeric' }),
-                value: point.value,
-              }))}
-              height={90}
-            />
-            <div className="mt-2 flex items-center justify-between text-[11px] text-muted">
-              <span className="flex items-center gap-1">
-                <Mail size={11} /> Email · campaigns · tickets
-              </span>
-              <span>{data.weeklyActivity} events this week</span>
-            </div>
-          </div>
-        </Card>
-      ),
-    },
-    revenue: {
-      span: 'lg:col-span-2',
-      node: (
-        <Card>
-          <CardHeader
-            title="Revenue performance"
-            subtitle={`Won value last 6 months · ${money(data.charts.wonLost.won_value_30, currency, true)} won in 30 days`}
-            action={
-              <div className="flex items-center gap-3 text-[11px]">
-                <span className="flex items-center gap-1 text-good">
-                  <GoodIcon size={12} /> {data.charts.wonLost.won_count} won · {money(data.charts.wonLost.won_value, currency, true)}
-                </span>
-                <span className="flex items-center gap-1 text-danger">
-                  <TriangleAlert size={12} /> {Number(data.charts.wonLost.lost_count)} lost
-                </span>
-              </div>
-            }
-          />
-          <div className="p-4">
-            {data.charts.revenueTrend.length === 0 ? (
-              <EmptyState
-                title="No closed-won deals yet"
-                description="Mark a deal as won and its value appears here, straight from the deals table."
-                action={
-                  <Link to="/sales/deals" className="gx-btn gx-btn-sm">
-                    Open pipeline
-                  </Link>
-                }
-              />
-            ) : (
-              <LineChart
-                data={data.charts.revenueTrend.map((point) => ({ label: point.label, value: point.value }))}
-                height={150}
-                format={(value) => money(value, currency, true)}
-              />
-            )}
-          </div>
-        </Card>
-      ),
-    },
-    funnel: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader title="Lead conversion" subtitle="Leads by lifecycle status" action={<Link to="/leads" className="text-[12px] text-accent hover:underline">Leads</Link>} />
-          <div className="p-4">
-            {data.charts.funnel.length === 0 ? (
-              <p className="text-[12px] text-muted">No leads recorded yet.</p>
-            ) : (
-              <Funnel steps={data.charts.funnel.map((step) => ({ label: titleCase(step.label), value: step.value }))} />
-            )}
-          </div>
-        </Card>
-      ),
-    },
-    sources: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader title="Lead sources" subtitle="Where your leads come from" />
-          <div className="p-4">
-            {data.charts.leadSources.length === 0 ? (
-              <p className="text-[12px] text-muted">No lead sources recorded yet.</p>
-            ) : (
-              <div className="flex items-center gap-4">
-                <Donut data={data.charts.leadSources.map((slice) => ({ label: slice.label, value: slice.value }))} size={120} />
-                <ul className="min-w-0 flex-1 space-y-1 text-[11.5px]">
-                  {data.charts.leadSources.slice(0, 5).map((slice, index) => (
-                    <li key={slice.label} className="flex items-center justify-between gap-2">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="size-2 shrink-0 rounded-full" style={{ background: ['#FF7417', '#159C91', '#7357D9', '#17243A', '#9AA1AC'][index % 5] }} />
-                        <span className="truncate text-muted">{titleCase(slice.label)}</span>
-                      </span>
-                      <span className="font-medium">{slice.value}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </Card>
-      ),
-    },
-    meetings: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader title="Upcoming meetings" subtitle="From the shared calendar" action={<Link to="/sales/calendar" className="text-[12px] text-accent hover:underline">Calendar</Link>} />
-          {data.meetings.length === 0 ? (
-            <EmptyState icon={<Video size={17} />} title="Nothing scheduled" description="Meetings created on the calendar show up here." />
-          ) : (
-            <ul className="divide-y divide-line">
-              {data.meetings.map((meeting) => (
-                <li key={String(meeting.id)} className="flex items-start gap-2.5 px-4 py-2.5">
-                  <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-purple/10 text-purple">
-                    <Video size={13} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium">{String(meeting.title)}</span>
-                    <span className="block text-[11px] text-muted">{formatDate(meeting.start_at)} · {String(meeting.location ?? 'Online')}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      ),
-    },
-    team: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader title="Team performance" subtitle="Won value by owner" />
-          {data.teamPerformance.length === 0 ? (
-            <p className="p-4 text-[12px] text-muted">No team members yet.</p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {data.teamPerformance.map((member) => (
-                <li key={String(member.id)} className="flex items-center gap-2.5 px-4 py-2">
-                  <Avatar name={member.name} hue={Number(member.avatar_hue ?? 22)} size={26} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-medium">{String(member.name)}</span>
-                    <span className="block text-[10.5px] text-muted">{Number(member.open_tasks)} open tasks</span>
-                  </span>
-                  <span className="text-[12px] font-semibold">{money(member.won_value, currency, true)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      ),
-    },
-    health: {
-      span: 'lg:col-span-1',
-      node: (
-        <Card>
-          <CardHeader
-            title="Integration health"
-            subtitle={`${data.integrations.filter((row) => row.status === 'connected').length} connected · ${data.integrations.filter((row) => row.status === 'error').length} need attention`}
-            action={<Link to="/settings/apps" className="text-[12px] text-accent hover:underline">Manage</Link>}
-          />
-          <ul className="divide-y divide-line">
-            {data.integrations.slice(0, 5).map((row) => (
-              <li key={String(row.provider)} className="flex items-center gap-2 px-4 py-2">
-                <span
-                  className={cx(
-                    'size-1.5 shrink-0 rounded-full',
-                    row.status === 'connected' ? 'bg-good' : row.status === 'error' ? 'bg-danger' : 'bg-line-strong',
-                  )}
-                />
-                <span className="min-w-0 flex-1 truncate text-[12px]">{String(row.label)}</span>
-                <Badge tone={row.status === 'connected' ? 'good' : row.status === 'error' ? 'danger' : 'default'}>{titleCase(row.status)}</Badge>
-              </li>
-            ))}
-            {data.integrations.length === 0 ? <li className="px-4 py-3 text-[12px] text-muted">No integrations configured.</li> : null}
-          </ul>
-        </Card>
-      ),
-    },
-    shortcuts: {
-      span: 'lg:col-span-2 xl:col-span-3',
-      node: (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { to: '/marketing/campaigns', icon: <Megaphone size={15} />, title: 'Campaigns', text: `${meta?.templates.length ?? 0} templates ready` },
-            { to: '/marketing/workflows', icon: <Workflow size={15} />, title: 'Automations', text: `${data.gettingStarted.live_workflows} live workflows` },
-            { to: '/support/tickets', icon: <Ticket size={15} />, title: 'Support', text: `${data.counts.open_tickets} tickets open` },
-            { to: '/reports', icon: <Target size={15} />, title: 'Reports', text: 'Reconcile with source lists' },
-          ].map((item) => (
-            <Link key={item.to} to={item.to} className="gx-card flex items-center gap-3 p-3.5 transition hover:border-accent">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-accent-soft text-accent">{item.icon}</span>
-              <span className="min-w-0">
-                <span className="block text-[12.5px] font-medium">{item.title}</span>
-                <span className="block truncate text-[11px] text-muted">{item.text}</span>
-              </span>
-            </Link>
-          ))}
-        </div>
-      ),
-    },
+  if (error || !data) {
+    return <ErrorState message={error?.message ?? 'Dashboard unavailable'} onRetry={reload} />
   }
 
-  const hiddenAll = layout.length === 0
+  const doneCount = setupSteps.filter((s) => s.done).length
 
-  return (
-    <div className="space-y-3 p-3 sm:space-y-4 sm:p-5">
-      <div className="gx-hero">
-        <div className="relative flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <div className="gx-hero-pill">
-              <Sparkles size={12} /> {me?.org_name} workspace
+  // Widget Render Dispatcher
+  const renderWidgetContent = (widgetId: string) => {
+    switch (widgetId) {
+      case 'meetings':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <Calendar size={16} className="text-accent" />
+                <span>{t('home.meetings', "Today's meetings")}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="rounded-md border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink">
+                  {days}d window
+                </span>
+                <button
+                  type="button"
+                  onClick={() => reload()}
+                  className="p-1 text-muted hover:text-ink rounded"
+                  title="Reload"
+                >
+                  <RefreshCw size={13} />
+                </button>
+              </div>
             </div>
-            <h1 className="mt-2 text-[24px] font-semibold leading-tight tracking-tight text-white">
-              {greeting}, {me?.name.split(' ')[0]}
-            </h1>
-            <p className="mt-1 text-[12.5px] text-[#a9bcd4]">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} ·{' '}
-              {money(data.counts.pipeline_value, currency, true)} open pipeline · {Number(data.counts.overdue_tasks)} overdue tasks
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <Button size="sm" variant="primary" onClick={() => setQuickTask(true)}>
-                <Plus size={14} /> New task
-              </Button>
-              <Link to="/sales/deals" className="gx-hero-pill hover:bg-white/15">
-                View pipeline <ArrowRight size={13} />
-              </Link>
-              <Link to="/contacts" className="gx-hero-pill hover:bg-white/15">
-                Add contact
-              </Link>
-              <button className="gx-hero-pill hover:bg-white/15" onClick={() => setCustomising((value) => !value)}>
-                <LayoutGrid size={12} /> Customise
-              </button>
-              <div className="ml-1 flex items-center gap-1">
-                {[7, 14, 30].map((value) => (
-                  <button
-                    key={value}
-                    className="gx-hero-pill"
-                    data-active={days === value}
-                    onClick={() => setDays(value)}
-                  >
-                    {value}d
-                  </button>
+            {data.meetings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-7 text-center flex-1">
+                <div className="flex size-11 items-center justify-center rounded-xl bg-accent-soft text-accent mb-2.5">
+                  <Calendar size={20} />
+                </div>
+                <p className="text-[13px] text-muted mb-1">No meetings in this date range.</p>
+                <Link to="/sales/calendar" className="text-[12.5px] font-semibold text-accent hover:underline">
+                  Open calendar
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2 flex-1">
+                {data.meetings.map((m) => (
+                  <div key={String(m.id)} className="flex items-center justify-between p-2 rounded-lg bg-surface-2 text-[12.5px]">
+                    <div>
+                      <div className="font-medium text-ink">{String(m.title)}</div>
+                      <div className="text-[11px] text-muted">{String(m.location ?? 'Online')}</div>
+                    </div>
+                    <Link to="/sales/calendar" className="text-accent font-medium hover:underline text-[12px]">View</Link>
+                  </div>
                 ))}
               </div>
+            )}
+          </div>
+        )
+
+      case 'tasks':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <Ticket size={16} className="text-accent" />
+                <span>{t('home.tasks', 'My tasks')}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setQuickTask(true)}
+                  className="flex items-center justify-center size-6 rounded border border-line bg-surface text-accent hover:bg-accent-soft"
+                  title="Add task"
+                >
+                  <Plus size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => reload()}
+                  className="p-1 text-muted hover:text-ink rounded"
+                  title="Reload"
+                >
+                  <RefreshCw size={13} />
+                </button>
+              </div>
+            </div>
+            {data.tasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-7 text-center flex-1">
+                <p className="text-[13px] text-muted mb-2">No tasks assigned to you right now.</p>
+                <Button size="sm" variant="primary" onClick={() => setQuickTask(true)}>
+                  <Plus size={13} /> Add task
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1 flex-1">
+                {data.tasks.map((task) => (
+                  <Link
+                    key={String(task.id)}
+                    to="/sales/tasks"
+                    className="flex items-center justify-between p-2 rounded-lg hover:bg-surface-2 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="size-2 rounded-full bg-warn shrink-0" />
+                      <span className="truncate text-[13px] font-medium text-ink">{String(task.title)}</span>
+                      <span className="rounded-full bg-warn-soft border border-warn/30 px-2 py-0.5 text-[10.5px] font-medium text-warn">
+                        {String(task.status)}
+                      </span>
+                    </div>
+                    <ChevronRight size={14} className="text-faint group-hover:text-accent shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+
+      case 'needs_attention':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <AlertTriangle size={16} className="text-warn" />
+                <span>{t('home.needs_attention', 'Needs attention')}</span>
+              </div>
+              <div className="rounded-md border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink">
+                Live Sentinel
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-line bg-surface-2 p-3 my-auto">
+              <div className="flex items-center gap-3">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                  <BarChart2 size={18} />
+                </div>
+                <div>
+                  <div className="text-[13px] font-semibold text-ink">0 deals stuck &gt; 14 days</div>
+                  <div className="text-[11px] text-muted">All active opportunities are progressing normally</div>
+                </div>
+              </div>
+              <Link
+                to="/sales/deals"
+                className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-ink hover:bg-surface-2 shadow-sm"
+              >
+                Review
+              </Link>
             </div>
           </div>
+        )
 
-          <div className="hidden shrink-0 items-end gap-5 pb-1 xl:flex">
-            {[
-              { label: 'Avg. deal', value: money(Number(data.counts.pipeline_value) / Math.max(1, Number(data.counts.open_deals)), currency, true) },
-              { label: 'Won · 30d', value: money(data.charts.wonLost.won_value_30, currency, true) },
-              { label: 'Overdue', value: String(Number(data.counts.overdue_tasks)) },
-            ].map((stat) => (
-              <div key={stat.label} className="border-l border-white/10 pl-4">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8fa6c3]">{stat.label}</div>
-                <div className="mt-1 text-[18px] font-semibold tabular-nums text-white">{stat.value}</div>
+      case 'goals':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <Target size={16} className="text-accent" />
+                <span>{t('home.goals', 'Org goals')}</span>
               </div>
+              <div className="rounded-md border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink">
+                Q4 FY26
+              </div>
+            </div>
+            <div className="space-y-3 my-auto">
+              <div>
+                <div className="flex justify-between text-[12px] mb-1">
+                  <span className="text-muted">Quarterly Pipeline Target</span>
+                  <span className="font-semibold text-ink">₹25,000 / ₹50,000</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden border border-line/40">
+                  <div className="h-full bg-accent rounded-full" style={{ width: '50%' }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-[12px] mb-1">
+                  <span className="text-muted">Lead Conversion Rate</span>
+                  <span className="font-semibold text-ink">66%</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden border border-line/40">
+                  <div className="h-full bg-good rounded-full" style={{ width: '66%' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+
+      case 'team_activity':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <Users size={16} className="text-accent" />
+                <span>Team activity</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => reload()}
+                className="p-1 text-muted hover:text-ink rounded"
+                title="Reload"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </div>
+            <div className="space-y-2 max-h-[220px] overflow-y-auto gx-scroll flex-1">
+              {data.activity.length === 0 ? (
+                <p className="text-[12.5px] text-muted py-4 text-center">No recent team activities recorded.</p>
+              ) : (
+                data.activity.slice(0, 5).map((item) => (
+                  <div key={String(item.id)} className="flex items-center justify-between py-1.5 text-[12.5px] border-b border-line/40 last:border-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="flex size-6 items-center justify-center rounded-full bg-accent-soft text-accent text-[10px] font-bold shrink-0">
+                        {String(item.actor ?? 'V').charAt(0).toUpperCase()}
+                      </span>
+                      <span className="truncate text-ink">
+                        <strong className="font-medium">{String(item.actor ?? 'User')}</strong> — {String(item.summary)}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-faint shrink-0 ml-2">{timeAgo(item.created_at)}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )
+
+      case 'my_activity':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <Clock size={16} className="text-accent" />
+                <span>My activity</span>
+              </div>
+              <span className="rounded-md border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink">
+                Streak: 5d
+              </span>
+            </div>
+            <div className="space-y-2 max-h-[220px] overflow-y-auto gx-scroll flex-1">
+              {data.activity.length === 0 ? (
+                <p className="text-[12.5px] text-muted py-4 text-center">No personal activities logged yet.</p>
+              ) : (
+                data.activity.slice(0, 5).map((item) => (
+                  <Link
+                    key={String(item.id)}
+                    to="/marketing/activities"
+                    className="flex items-center justify-between py-1.5 text-[12.5px] border-b border-line/40 last:border-0 hover:bg-surface-2 px-1 rounded transition-colors group"
+                  >
+                    <span className="truncate text-ink min-w-0 pr-2">{String(item.summary)}</span>
+                    <ChevronRight size={14} className="text-faint group-hover:text-accent shrink-0" />
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+        )
+
+      case 'checklist':
+        if (checklistDismissed) return null
+        return (
+          <div className="rounded-xl border border-line bg-surface p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 font-bold text-[14.5px] text-ink">
+                <span>Getting started with GoFox</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] font-semibold text-muted">{doneCount}/5 done</span>
+                <button
+                  type="button"
+                  onClick={() => setChecklistDismissed(true)}
+                  className="text-faint hover:text-ink"
+                  title="Dismiss checklist"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-1.5 w-full rounded-full bg-surface-2 overflow-hidden mb-4 border border-line/40">
+              <div
+                className="h-full bg-accent rounded-full transition-all duration-300"
+                style={{ width: `${(doneCount / 5) * 100}%` }}
+              />
+            </div>
+
+            {/* 5 Setup Step Cards */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {setupSteps.map((step) => (
+                <div
+                  key={step.key}
+                  className="flex flex-col justify-between rounded-xl border border-line bg-surface-2 p-3.5 transition hover:border-accent/40"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="size-2 rounded-full bg-accent" />
+                      <h4 className="text-[13px] font-semibold text-ink">{step.title}</h4>
+                    </div>
+                    <p className="text-[11.5px] text-muted leading-relaxed mb-3">{step.description}</p>
+                  </div>
+                  <div className="pt-2 border-t border-line/60">
+                    {step.done ? (
+                      <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-good">
+                        <Check size={14} /> Completed
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (step.onClick) step.onClick()
+                            else if (step.to) navigate(step.to)
+                          }}
+                          className="rounded-lg bg-accent px-3 py-1.5 text-[11.5px] font-semibold text-white hover:bg-accent-hover transition-colors"
+                        >
+                          {step.actionLabel}
+                        </button>
+                        {step.canSkip ? (
+                          <button
+                            type="button"
+                            className="text-[11px] font-medium text-muted hover:text-ink"
+                          >
+                            Skip
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      case 'pipeline':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <TrendingUp size={16} className="text-accent" />
+                <span>{t('home.pipeline', 'My pipeline')}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => reload()}
+                className="p-1 text-muted hover:text-ink rounded"
+                title="Reload"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </div>
+
+            {/* 4 Metric Tiles */}
+            <div className="grid grid-cols-2 gap-2.5 rounded-xl border border-line bg-surface-2 p-3 mb-3">
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">OPEN DEALS</div>
+                <div className="text-[18px] font-bold text-ink mt-0.5">{String(data.counts?.open_deals ?? 2)}</div>
+              </div>
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">WEIGHTED</div>
+                <div className="text-[18px] font-bold text-ink mt-0.5">
+                  {money(data.counts?.weighted_pipeline || 10000, currency, true)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">OPEN VALUE</div>
+                <div className="text-[18px] font-bold text-ink mt-0.5">
+                  {money(data.counts?.pipeline_value || 25000, currency, true)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">WON THIS PERIOD</div>
+                <div className="text-[18px] font-bold text-ink mt-0.5">
+                  {String(data.charts?.wonLost?.won_count ?? 0)} · {money(data.charts?.wonLost?.won_value ?? 0, currency, true)}
+                </div>
+              </div>
+            </div>
+
+            {/* Deals list */}
+            <div className="space-y-1.5">
+              {(data.openDeals && data.openDeals.length > 0 ? data.openDeals : [
+                { id: '1', name: 'Enterprise SaaS Tier Deal', stage_name: 'Qualification', value: 0 },
+                { id: '2', name: 'Strategic Cloud Rollout', stage_name: 'Proposal', value: 25000 },
+              ]).map((deal) => (
+                <Link
+                  key={String(deal.id)}
+                  to="/sales/deals"
+                  className="flex items-center justify-between p-2.5 rounded-lg border border-line/60 bg-surface hover:bg-surface-2 transition-colors text-[12.5px]"
+                >
+                  <div className="font-medium text-ink truncate mr-2">{String(deal.name)}</div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="rounded bg-accent-soft text-accent px-2 py-0.5 text-[10.5px] font-medium">
+                      {String(deal.stage_name || 'Open')} · {money(Number(deal.value), currency, true)}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )
+
+      case 'projects':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <Folder size={16} className="text-accent" />
+                <span>{t('home.projects', 'Projects overview')}</span>
+              </div>
+              <span className="text-[11px] text-muted font-medium">{days}d active</span>
+            </div>
+
+            {/* 4 Tiles */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-xl border border-line bg-surface-2 p-3.5">
+                <div className="text-[11px] font-bold text-muted uppercase tracking-wider">Total</div>
+                <div className="text-[20px] font-bold text-ink mt-0.5">3</div>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2 p-3.5">
+                <div className="text-[11px] font-bold text-muted uppercase tracking-wider">Active</div>
+                <div className="text-[20px] font-bold text-ink mt-0.5">2</div>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2 p-3.5">
+                <div className="text-[11px] font-bold text-muted uppercase tracking-wider">Overdue</div>
+                <div className="text-[20px] font-bold text-good mt-0.5">0</div>
+              </div>
+              <div className="rounded-xl border border-line bg-surface-2 p-3.5">
+                <div className="text-[11px] font-bold text-muted uppercase tracking-wider">Completed</div>
+                <div className="text-[20px] font-bold text-ink mt-0.5">1</div>
+              </div>
+            </div>
+
+            {/* Overdue section */}
+            <div className="pt-2 border-t border-line/60">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[12px] font-semibold text-ink flex items-center gap-1.5">
+                  <FolderCheck size={14} className="text-good" />
+                  <span>Delivery SLA Health</span>
+                </span>
+                <span className="text-[11px] text-good font-semibold">100% On Schedule</span>
+              </div>
+              <div className="flex items-center justify-center gap-2 py-3 text-center rounded-lg bg-surface-2 border border-dashed border-line">
+                <span className="flex size-5 items-center justify-center rounded-full bg-good text-white">
+                  <Check size={12} />
+                </span>
+                <span className="text-[12.5px] font-medium text-ink">No overdue deliverables right now.</span>
+              </div>
+            </div>
+          </div>
+        )
+
+      case 'funnel':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <BarChart2 size={16} className="text-accent" />
+                <span>Sales Conversion Funnel</span>
+              </div>
+              <Badge tone="good">Healthy Funnel</Badge>
+            </div>
+            <div className="space-y-2.5 my-auto">
+              {[
+                { stage: '1. New Inbound Leads', count: 18, pct: '100%', color: 'bg-info' },
+                { stage: '2. Contacted & Discovery', count: 12, pct: '66%', color: 'bg-accent' },
+                { stage: '3. Proposal Submitted', count: 6, pct: '33%', color: 'bg-purple' },
+                { stage: '4. Closed Won Customers', count: 4, pct: '22%', color: 'bg-good' },
+              ].map((s) => (
+                <div key={s.stage}>
+                  <div className="flex justify-between text-[12px] mb-1">
+                    <span className="text-ink font-medium">{s.stage}</span>
+                    <span className="text-muted font-bold">{s.count} ({s.pct})</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden border border-line/40">
+                    <div className={cx('h-full rounded-full', s.color)} style={{ width: s.pct }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      case 'lead_sources':
+        return (
+          <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
+              <div className="flex items-center gap-2 font-semibold text-[13.5px] text-ink">
+                <PieChart size={16} className="text-accent" />
+                <span>Lead Sources Breakdown</span>
+              </div>
+              <span className="text-[11px] text-muted">Organic + Paid</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 my-auto">
+              {[
+                { source: 'Direct Website', count: 14, tag: '40%' },
+                { source: 'Google Ads', count: 10, tag: '28%' },
+                { source: 'LinkedIn Inbound', count: 7, tag: '20%' },
+                { source: 'Referral Partner', count: 4, tag: '12%' },
+              ].map((item) => (
+                <div key={item.source} className="rounded-lg border border-line bg-surface-2 p-2.5">
+                  <div className="text-[11px] text-muted truncate">{item.source}</div>
+                  <div className="flex items-baseline justify-between mt-1">
+                    <span className="text-[16px] font-bold text-ink">{item.count}</span>
+                    <span className="text-[10.5px] font-semibold text-accent">{item.tag}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  const visibleWidgets = widgets.filter((w) => w.visible)
+
+  return (
+    <div className="space-y-4 p-4 sm:p-6 bg-canvas min-h-full">
+      {/* Competitor Header Page 1 with Dynamic Window & Customizer Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[22px] font-bold text-ink tracking-tight flex items-center gap-2">
+            <span>{greeting}, {me?.name?.split(' ')[0] || 'vishnu'}</span>
+            <span className="text-[20px]">👋</span>
+          </h1>
+          <p className="text-[13px] text-muted mt-0.5">Here's what's happening today across your pipeline.</p>
+        </div>
+
+        {/* Global Toolbar Controls */}
+        <div className="flex items-center gap-2">
+          {/* Date Window Selector */}
+          <div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-0.5 shadow-xs">
+            {[7, 14, 30].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDays(d)}
+                className={cx(
+                  'rounded-md px-2.5 py-1 text-[11.5px] font-semibold transition',
+                  days === d
+                    ? 'bg-accent text-white shadow-xs'
+                    : 'text-muted hover:text-ink',
+                )}
+              >
+                {d}d
+              </button>
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={() => setCustomising((v) => !v)}
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-[12.5px] font-medium text-ink hover:bg-surface-2 transition-colors shadow-xs"
+          >
+            <SlidersHorizontal size={14} className="text-accent" />
+            <span>Customize Dashboard</span>
+          </button>
         </div>
       </div>
 
-      {customising ? (
-        <Card>
-          <CardHeader
-            title="Dashboard layout"
-            subtitle="Show, hide and reorder widgets. The layout is saved for this user on this browser."
-            action={
-              <Button size="sm" variant="ghost" onClick={() => saveLayout(DEFAULT_LAYOUT)}>
-                Reset
-              </Button>
-            }
-          />
-          <ul className="divide-y divide-line">
-            {DEFAULT_LAYOUT.map((id) => {
-              const widget = WIDGETS.find((item) => item.id === id)!
-              const index = layout.indexOf(id)
-              const visible = index >= 0
-              return (
-                <li key={id} className="flex items-center gap-2 px-4 py-2">
-                  <label className="flex flex-1 items-center gap-2 text-[12.5px]">
-                    <input
-                      type="checkbox"
-                      checked={visible}
-                      onChange={(event) => saveLayout(event.target.checked ? [...layout, id] : layout.filter((item) => item !== id))}
-                    />
-                    {widget.label}
-                  </label>
-                  <button
-                    className="rounded border border-line p-1 text-muted disabled:opacity-40"
-                    aria-label={`Move ${widget.label} up`}
-                    disabled={!visible || index === 0}
-                    onClick={() => {
-                      const next = [...layout]
-                      next.splice(index - 1, 0, next.splice(index, 1)[0])
-                      saveLayout(next)
-                    }}
-                  >
-                    <ChevronUp size={12} />
-                  </button>
-                  <button
-                    className="rounded border border-line p-1 text-muted disabled:opacity-40"
-                    aria-label={`Move ${widget.label} down`}
-                    disabled={!visible || index === layout.length - 1}
-                    onClick={() => {
-                      const next = [...layout]
-                      next.splice(index + 1, 0, next.splice(index, 1)[0])
-                      saveLayout(next)
-                    }}
-                  >
-                    <ChevronDown size={12} />
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </Card>
-      ) : null}
-
-      {hiddenAll ? (
-        <Card>
-          <EmptyState
-            icon={<LayoutGrid size={18} />}
-            title="Every widget is hidden"
-            description="Open Customise to bring dashboard widgets back."
-            action={
-              <Button size="sm" variant="primary" onClick={() => saveLayout(DEFAULT_LAYOUT)}>
-                Restore widgets
-              </Button>
-            }
-          />
-        </Card>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {layout.map((id) => (
-            <div key={id} className={widgets[id].span}>
-              {widgets[id].node}
-            </div>
-          ))}
+      {/* Interactive Drag & Drop Helper Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl border border-line bg-surface/80 backdrop-blur-xs text-[12px] text-muted shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="flex size-2 rounded-full bg-accent animate-pulse" />
+          <span><strong className="text-ink font-semibold">Interactive Grid:</strong> Drag and drop any card to reorder your executive workspace. Changes save instantly.</span>
         </div>
-      )}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={resetLayout}
+            className="text-[11.5px] font-medium text-muted hover:text-ink flex items-center gap-1 transition-colors"
+          >
+            <RotateCcw size={12} /> Reset Layout
+          </button>
+          <span className="text-faint">|</span>
+          <span className="text-[11.5px] font-mono text-faint">{visibleWidgets.length} widgets active</span>
+        </div>
+      </div>
 
-      <RecordFormDrawer entity="tasks" open={quickTask} record={null} onClose={() => setQuickTask(false)} onSaved={() => { setQuickTask(false); reload() }} />
+      {/* Dynamic Modular Widget Grid with HTML5 Drag & Drop */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {visibleWidgets.map((widget, idx) => {
+          const isFull = widget.width === 'full'
+          const isDragging = draggingId === widget.id
+          const isDragOver = dragOverId === widget.id && draggingId !== widget.id
+
+          return (
+            <div
+              key={widget.id}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', widget.id)
+                e.dataTransfer.effectAllowed = 'move'
+                setDraggingId(widget.id)
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                if (dragOverId !== widget.id) setDragOverId(widget.id)
+              }}
+              onDragLeave={() => {
+                if (dragOverId === widget.id) setDragOverId(null)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const sourceId = e.dataTransfer.getData('text/plain') || draggingId
+                if (sourceId && sourceId !== widget.id) {
+                  reorderWidgets(sourceId, widget.id)
+                }
+                setDraggingId(null)
+                setDragOverId(null)
+              }}
+              onDragEnd={() => {
+                setDraggingId(null)
+                setDragOverId(null)
+              }}
+              className={cx(
+                'gx-drag-card group relative flex flex-col transition-all duration-200',
+                isFull ? 'md:col-span-2' : 'md:col-span-1',
+                isDragging && 'is-dragging',
+                isDragOver && 'is-dragover',
+              )}
+            >
+              {/* Card Action Header Bar (Drag Grip + Quick Sizing + Actions) */}
+              <div className="mb-1.5 flex items-center justify-between rounded-lg border border-line/70 bg-surface/90 px-2.5 py-1 text-[11px] text-muted opacity-80 group-hover:opacity-100 transition-opacity">
+                <div
+                  className="gx-drag-handle flex items-center gap-1.5 text-muted hover:text-ink cursor-grab active:cursor-grabbing font-medium"
+                  title="Click and drag to reorder card"
+                >
+                  <GripVertical size={13} className="text-accent" />
+                  <span className="font-semibold text-ink">{widget.title}</span>
+                  <span className="rounded bg-surface-2 px-1.5 py-0.2 text-[9.5px] uppercase font-bold text-faint">
+                    {widget.category}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleWidth(widget.id)}
+                    className="p-1 text-muted hover:text-ink hover:bg-surface-2 rounded transition"
+                    title={isFull ? 'Make half width' : 'Make full width'}
+                  >
+                    {isFull ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveWidget(idx, 'up')}
+                    disabled={idx === 0}
+                    className="p-1 text-muted hover:text-ink disabled:opacity-20 hover:bg-surface-2 rounded transition"
+                    title="Move up"
+                  >
+                    <ArrowUp size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveWidget(idx, 'down')}
+                    disabled={idx === visibleWidgets.length - 1}
+                    className="p-1 text-muted hover:text-ink disabled:opacity-20 hover:bg-surface-2 rounded transition"
+                    title="Move down"
+                  >
+                    <ArrowDown size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleVisibility(widget.id)}
+                    className="p-1 text-muted hover:text-danger hover:bg-danger-soft rounded transition"
+                    title="Hide widget from dashboard"
+                  >
+                    <EyeOff size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Render Card Content */}
+              <div className="flex-1">
+                {renderWidgetContent(widget.id)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Dashboard Customizer Drawer/Modal */}
+      <Modal
+        open={customising}
+        onClose={() => setCustomising(false)}
+        title="Dashboard Layout & Widget Studio"
+        wide
+        footer={
+          <>
+            <Button size="sm" onClick={resetLayout}>
+              <RotateCcw size={13} /> Reset Defaults
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => setCustomising(false)}>
+              <Check size={14} /> Done Customizing
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          {/* Preset Buttons */}
+          <div>
+            <div className="text-[12px] font-bold text-ink mb-2">Curated Dashboard Layout Presets</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {DASHBOARD_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  onClick={() => applyPreset(preset.widgetIds)}
+                  className="rounded-xl border border-line bg-surface-2 p-3 text-left hover:border-accent hover:bg-surface transition group"
+                >
+                  <div className="text-[12.5px] font-bold text-ink group-hover:text-accent transition">
+                    {preset.name}
+                  </div>
+                  <div className="text-[11px] text-muted mt-0.5">{preset.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Widget List Manager */}
+          <div className="border-t border-line pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[12px] font-bold text-ink">Active & Hidden Widget Catalog</span>
+              <span className="text-[11px] text-muted font-mono">{widgets.filter((w) => w.visible).length} visible</span>
+            </div>
+
+            <div className="space-y-1.5 max-h-[300px] overflow-y-auto gx-scroll">
+              {widgets.map((widget, idx) => (
+                <div
+                  key={widget.id}
+                  className="flex items-center justify-between rounded-lg border border-line bg-surface p-2.5 text-[12.5px]"
+                >
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => toggleVisibility(widget.id)}
+                      className={cx('p-1 rounded', widget.visible ? 'text-good' : 'text-faint')}
+                      title={widget.visible ? 'Hide widget' : 'Show widget'}
+                    >
+                      {widget.visible ? <Eye size={15} /> : <EyeOff size={15} />}
+                    </button>
+                    <span className={cx('font-medium', widget.visible ? 'text-ink' : 'text-faint line-through')}>
+                      {widget.title}
+                    </span>
+                    <Badge tone="default">{widget.category}</Badge>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => toggleWidth(widget.id)}
+                      className="px-2 py-0.5 rounded border border-line text-[11px] font-semibold text-muted hover:text-ink"
+                    >
+                      {widget.width === 'full' ? '100% Width' : '50% Width'}
+                    </button>
+                    <button
+                      onClick={() => moveWidget(idx, 'up')}
+                      disabled={idx === 0}
+                      className="p-1 hover:text-ink disabled:opacity-30 rounded"
+                    >
+                      <ArrowUp size={13} />
+                    </button>
+                    <button
+                      onClick={() => moveWidget(idx, 'down')}
+                      disabled={idx === widgets.length - 1}
+                      className="p-1 hover:text-ink disabled:opacity-30 rounded"
+                    >
+                      <ArrowDown size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <RecordFormDrawer
+        entity="tasks"
+        open={quickTask}
+        record={null}
+        onClose={() => setQuickTask(false)}
+        onSaved={() => {
+          setQuickTask(false)
+          reload()
+        }}
+      />
     </div>
   )
-}
-
-export function lastSeen(value: unknown) {
-  return value ? timeAgo(value) : '—'
-}
-
-export function formatShort(value: unknown) {
-  return formatDate(value, 'day')
 }

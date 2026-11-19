@@ -56,7 +56,10 @@ import {
   EmailAccountsPage,
   FinancialSettingsPage,
   IntegrationDetailPage,
+  LanguageSettingsPage,
   ProfileSettingsPage,
+  RolesPermissionsPage,
+  ThemeGalleryPage,
 } from './pages/settings'
 import { FilesPage, NotFoundPage, PublicFormPage, PublicLandingPage, ReportsPage, TrashPage } from './pages/misc'
 import { SitePage } from './pages/site'
@@ -235,7 +238,10 @@ function WorkspaceRoutes({ path }: { path: string }) {
 
   if (path === '/reports') return <ReportsPage />
 
-  if (path === '/settings/account') return <AccountSettingsPage />
+  if (path === '/settings' || path === '/settings/themes') return <ThemeGalleryPage />
+  if (path === '/settings/language') return <LanguageSettingsPage />
+  if (path === '/settings/roles') return <RolesPermissionsPage />
+  if (path === '/settings/users' || path === '/settings/account') return <AccountSettingsPage />
   if (path === '/settings/profile') return <ProfileSettingsPage />
   if (path === '/settings/financial') return <FinancialSettingsPage />
   if (path === '/settings/apps') return <ConnectedAppsPage />

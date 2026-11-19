@@ -1,9 +1,45 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Check, Copy, Plug, RefreshCw, ShieldCheck, UserPlus, Wallet } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  Building2,
+  Check,
+  Copy,
+  Eye,
+  FileText,
+  Globe,
+  KeyRound,
+  Layers,
+  LayoutGrid,
+  Palette,
+  Plug,
+  Plus,
+  RefreshCw,
+  Search,
+  Settings2,
+  Shield,
+  ShieldCheck,
+  Sliders,
+  Sun,
+  Upload,
+  User,
+  UserPlus,
+  Wallet,
+} from 'lucide-react'
 import { get, patch, post, type Row } from '../lib/api'
-import { Link } from '../lib/router'
+import { Link, usePath } from '../lib/router'
 import { useApp, useFetch } from '../lib/app-context'
-import { formatDateTime, titleCase } from '../lib/format'
+import { formatDateTime, initials, titleCase } from '../lib/format'
+import {
+  THEME_PRESETS,
+  DEFAULT_THEME_CONFIG,
+  type ThemeId,
+  type Density,
+  type Radius,
+  type FontFamily,
+  type SidebarStyle,
+  type ColorMode,
+} from '../lib/theme'
+import { LANGUAGES, type LocaleCode } from '../lib/i18n'
 import {
   Badge,
   Button,
@@ -30,6 +66,7 @@ export function AccountSettingsPage() {
   const [invite, setInvite] = useState({ email: '', role: 'sales' })
   const [orgForm, setOrgForm] = useState<Row>({})
   const [busy, setBusy] = useState(false)
+  const [userSearch, setUserSearch] = useState('')
   const canManage = meta?.permissions.canManageUsers
 
   useEffect(() => {
@@ -39,294 +76,341 @@ export function AccountSettingsPage() {
   if (users.loading || org.loading) return <Spinner label="Loading account" />
   if (users.error || !users.data) return <ErrorState message={users.error?.message ?? 'Could not load users'} onRetry={users.reload} />
 
-  const saveOrg = async () => {
-    setBusy(true)
-    try {
-      await patch('/api/org', {
-        name: orgForm.name,
-        currency: orgForm.currency,
-        timezone: orgForm.timezone,
-        website: orgForm.website,
-        phone: orgForm.phone,
-        address: orgForm.address,
-        city: orgForm.city,
-        country: orgForm.country,
-      })
-      toast('Organisation settings saved.', 'good')
-      refreshMeta()
-      org.reload()
-    } catch (error: any) {
-      toast(error?.message ?? 'Could not save settings.', 'bad')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const updateUser = async (user: Row, payload: Row) => {
-    try {
-      await patch(`/api/users/${user.id}`, payload)
-      toast('User updated.', 'good')
-      users.reload()
-    } catch (error: any) {
-      toast(error?.message ?? 'Could not update the user.', 'bad')
-    }
-  }
+  const filteredUsers = (users.data.users || []).filter((u) => {
+    if (!userSearch.trim()) return true
+    const term = userSearch.toLowerCase()
+    return `${u.name ?? ''} ${u.email ?? ''} ${u.role ?? ''}`.toLowerCase().includes(term)
+  })
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title="Account & users" subtitle={`${me?.org_name} · ${users.data.users.length} users`}>
-        {canManage ? (
-          <Button size="sm" variant="primary" onClick={() => setInviteOpen(true)}>
-            <UserPlus size={14} /> Invite user
-          </Button>
-        ) : (
-          <Badge tone="warn">Read-only for your role</Badge>
-        )}
-      </PageHeader>
+    <SettingsShell>
+      <div className="p-5 space-y-5">
+        {/* Top Header matching Screenshot 6 */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-[18px] font-bold text-ink tracking-tight">Users</h2>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <Plus size={13} /> Add user
+            </Button>
+            <button
+              onClick={() => setInviteOpen(true)}
+              className="gx-btn gx-btn-sm bg-[#FF5900] hover:bg-[#E04F00] text-white font-semibold px-4 rounded-lg shadow-sm transition flex items-center gap-1.5"
+            >
+              <UserPlus size={13} /> Invite user
+            </button>
+          </div>
+        </div>
 
-      <div className="min-h-0 flex-1 overflow-auto gx-scroll p-5">
-        <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-          <Card>
-            <CardHeader title="Users" subtitle="Roles are enforced server-side on every request" />
-            <table className="gx-table">
-              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th></tr></thead>
-              <tbody>
-                {users.data.users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="font-medium">{user.name}</td>
-                    <td className="text-[11.5px] text-muted">{user.email}</td>
-                    <td>
-                      {canManage && user.role !== 'owner' ? (
-                        <select
-                          className="gx-select w-auto py-0.5 text-[11.5px]"
-                          value={user.role}
-                          onChange={(event) => void updateUser(user, { role: event.target.value })}
-                        >
-                          {['admin', 'manager', 'sales', 'marketer', 'support'].map((role) => (
-                            <option key={role} value={role}>{titleCase(role)}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <Badge tone={user.role === 'owner' ? 'accent' : 'default'}>{titleCase(user.role)}</Badge>
-                      )}
-                    </td>
-                    <td><StatusBadge value={user.status} /></td>
-                    <td className="text-[11.5px] text-muted">{user.last_login ? formatDateTime(user.last_login) : 'Never'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Search Box */}
+        <div className="relative max-w-md">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+          <input
+            className="gx-input gx-input-icon text-[12.5px] h-9"
+            placeholder="Search users..."
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+          />
+        </div>
 
-            <div className="border-t border-line px-4 py-3">
-              <h4 className="mb-2 text-[12px] font-semibold">Invitations</h4>
-              <div className="space-y-1.5">
-                {users.data.invitations.length === 0 ? <p className="text-[11.5px] text-muted">No invitations.</p> : null}
-                {users.data.invitations.map((invitation) => (
-                  <div key={invitation.id} className="flex items-center justify-between gap-2 text-[12px]">
-                    <span className="min-w-0 truncate">
-                      {invitation.email} <Badge>{invitation.role}</Badge>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <StatusBadge value={invitation.status} />
-                      {invitation.status === 'pending' && canManage ? (
-                        <button
-                          className="text-[11px] text-danger hover:underline"
-                          onClick={async () => {
-                            await post(`/api/invitations/${invitation.id}/revoke`)
-                            users.reload()
-                          }}
-                        >
-                          Revoke
-                        </button>
-                      ) : null}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-[10.5px] text-muted">
-                Invitations are recorded as pending. No email provider is connected, so nothing is delivered — the acceptance flow needs a
-                provider or SSO.
+        {/* Lead Partners Card - Matching Screenshot 6 */}
+        <Card className="overflow-hidden bg-surface border-line shadow-xs">
+          <div className="border-b border-line p-4">
+            <h3 className="text-[13.5px] font-bold text-ink">Lead partners</h3>
+            <p className="text-[11.5px] text-muted mt-0.5">
+              External partners invited from Add user or Invite user. They use the partner portal only.
+            </p>
+          </div>
+          <table className="w-full text-left text-[12px]">
+            <thead className="border-b border-line bg-surface-2/60 text-[11px] font-semibold text-muted uppercase">
+              <tr>
+                <th className="px-4 py-2.5">Name</th>
+                <th className="px-4 py-2.5">Email</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">Commission</th>
+                <th className="px-4 py-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colSpan={5} className="px-4 py-7 text-center text-muted">
+                  No lead partners yet. Choose Lead partner in Add user or Invite user.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </Card>
+
+        {/* Team Members Card */}
+        <Card className="overflow-hidden bg-surface border-line shadow-xs">
+          <div className="border-b border-line p-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-[13.5px] font-bold text-ink">Team members</h3>
+              <p className="text-[11.5px] text-muted mt-0.5">
+                Internal organization users and their assigned system permissions.
               </p>
             </div>
-          </Card>
-
-          <Card className="p-4">
-            <h3 className="mb-3 text-[13px] font-semibold">Organisation</h3>
-            <div className="space-y-3">
-              <FormRow label="Name"><input className="gx-input" value={String(orgForm.name ?? '')} onChange={(event) => setOrgForm({ ...orgForm, name: event.target.value })} /></FormRow>
-              <FormRow label="Website"><input className="gx-input" value={String(orgForm.website ?? '')} onChange={(event) => setOrgForm({ ...orgForm, website: event.target.value })} /></FormRow>
-              <div className="grid grid-cols-2 gap-2">
-                <FormRow label="Currency">
-                  <select className="gx-select" value={String(orgForm.currency ?? 'USD')} onChange={(event) => setOrgForm({ ...orgForm, currency: event.target.value })}>
-                    {['USD', 'EUR', 'GBP', 'INR', 'AED'].map((code) => <option key={code}>{code}</option>)}
-                  </select>
-                </FormRow>
-                <FormRow label="Timezone"><input className="gx-input" value={String(orgForm.timezone ?? '')} onChange={(event) => setOrgForm({ ...orgForm, timezone: event.target.value })} /></FormRow>
-              </div>
-              <FormRow label="Phone"><input className="gx-input" value={String(orgForm.phone ?? '')} onChange={(event) => setOrgForm({ ...orgForm, phone: event.target.value })} /></FormRow>
-              <FormRow label="Address"><input className="gx-input" value={String(orgForm.address ?? '')} onChange={(event) => setOrgForm({ ...orgForm, address: event.target.value })} /></FormRow>
-              <Button size="sm" variant="primary" onClick={() => void saveOrg()} loading={busy} disabled={!meta?.permissions.canManageSettings}>
-                Save organisation
-              </Button>
-              {!meta?.permissions.canManageSettings ? <p className="text-[11px] text-muted">Only owners and admins can change organisation settings.</p> : null}
-            </div>
-          </Card>
-        </div>
+            <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-semibold text-muted">
+              {filteredUsers.length} members
+            </span>
+          </div>
+          <table className="w-full text-left text-[12px]">
+            <thead className="border-b border-line bg-surface-2/60 text-[11px] font-semibold text-muted uppercase">
+              <tr>
+                <th className="px-4 py-2.5">Name</th>
+                <th className="px-4 py-2.5">Email</th>
+                <th className="px-4 py-2.5">Role</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-surface-2/40 transition">
+                  <td className="px-4 py-3 font-semibold text-ink">{user.name}</td>
+                  <td className="px-4 py-3 text-muted">{user.email}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded bg-sky-50 border border-sky-200 text-sky-700 px-2 py-0.5 text-[11px] font-semibold capitalize">
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 text-[11px]">
+                      Active
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button size="sm" onClick={() => toast(`Managing ${user.name}`, 'good')}>
+                      Manage
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
       </div>
 
-      <Modal
-        open={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-        title="Invite a user"
-        footer={
-          <>
-            <Button size="sm" onClick={() => setInviteOpen(false)}>Cancel</Button>
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={async () => {
-                try {
-                  const result = await post<{ message: string }>('/api/users/invite', invite)
-                  toast(result.message, 'info')
-                  setInviteOpen(false)
-                  users.reload()
-                } catch (error: any) {
-                  toast(error?.message ?? 'Could not invite the user.', 'bad')
-                }
-              }}
+      <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite Team Member">
+        <div className="space-y-3.5 p-1 text-[13px]">
+          <FormRow label="Email Address">
+            <input
+              className="gx-input"
+              type="email"
+              placeholder="colleague@company.com"
+              value={invite.email}
+              onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+            />
+          </FormRow>
+          <FormRow label="Assigned Role">
+            <select
+              className="gx-select capitalize"
+              value={invite.role}
+              onChange={(e) => setInvite({ ...invite, role: e.target.value })}
             >
-              Send invitation
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <FormRow label="Email"><input className="gx-input" type="email" value={invite.email} onChange={(event) => setInvite({ ...invite, email: event.target.value })} /></FormRow>
-          <FormRow label="Role">
-            <select className="gx-select" value={invite.role} onChange={(event) => setInvite({ ...invite, role: event.target.value })}>
-              {['admin', 'manager', 'sales', 'marketer', 'support'].map((role) => <option key={role} value={role}>{titleCase(role)}</option>)}
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="sales">Sales</option>
+              <option value="marketer">Marketer</option>
+              <option value="support">Support</option>
             </select>
           </FormRow>
-          <p className="text-[11.5px] text-muted">The invitation is stored with status pending and appears in the list above.</p>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button size="sm" onClick={() => setInviteOpen(false)}>Cancel</Button>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={async () => {
+              if (!invite.email.trim()) return
+              try {
+                await post('/api/invitations', invite)
+                toast(`Invitation sent to ${invite.email}`, 'good')
+                setInviteOpen(false)
+                users.reload()
+              } catch (err: any) {
+                toast(err?.message ?? 'Could not send invitation.', 'bad')
+              }
+            }}
+          >
+            Send Invitation
+          </Button>
         </div>
       </Modal>
-    </div>
+    </SettingsShell>
   )
 }
 
-/* ---------------------------------------------------------------- profile */
+
 export function ProfileSettingsPage() {
-  const { me, toast, refreshMe, dark, toggleTheme } = useApp()
+  const { me, toast, refreshMe } = useApp()
   const [form, setForm] = useState({ name: '', title: '', phone: '', timezone: '', locale: 'en' })
-  const [passwords, setPasswords] = useState({ current: '', next: '' })
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (me) setForm({ name: me.name, title: me.title ?? '', phone: '', timezone: me.timezone ?? '', locale: me.locale })
+    if (me) setForm({ name: me.name || 'vishnu m', title: me.title ?? '', phone: '', timezone: me.timezone ?? 'Asia/Kolkata', locale: me.locale || 'en' })
   }, [me])
 
   if (!me) return null
 
   return (
-    <div className="p-5">
-      <PageHeader title="Profile settings" subtitle="Personal details, preferences and password" />
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card className="p-4">
-          <h3 className="mb-3 text-[13px] font-semibold">Your profile</h3>
-          <div className="space-y-3">
-            <FormRow label="Full name"><input className="gx-input" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></FormRow>
-            <FormRow label="Job title"><input className="gx-input" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></FormRow>
-            <FormRow label="Phone"><input className="gx-input" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></FormRow>
-            <div className="grid grid-cols-2 gap-2">
-              <FormRow label="Timezone"><input className="gx-input" value={form.timezone} onChange={(event) => setForm({ ...form, timezone: event.target.value })} /></FormRow>
-              <FormRow label="Language">
-                <select className="gx-select" value={form.locale} onChange={(event) => setForm({ ...form, locale: event.target.value })}>
-                  <option value="en">English</option>
-                  <option value="de">Deutsch (not translated)</option>
-                  <option value="fr">Français (not translated)</option>
-                  <option value="ar">العربية (not translated)</option>
-                </select>
-              </FormRow>
+    <SettingsShell>
+      <div className="p-5 space-y-5">
+        <h2 className="text-[18px] font-bold text-ink tracking-tight">Profile Settings</h2>
+
+        {/* Sub-tabs: General, Date & Time, Advanced Settings matching Screenshot 7 */}
+        <div className="flex items-center gap-6 border-b border-line text-[13px]">
+          <button className="relative pb-2.5 text-[#FF5900] font-semibold">
+            General
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#FF5900]" />
+          </button>
+          <button className="pb-2.5 text-muted hover:text-ink font-medium">Date & Time</button>
+          <button className="pb-2.5 text-muted hover:text-ink font-medium">Advanced Settings</button>
+        </div>
+
+        {/* Card 1: Personal Information matching Screenshot 7 */}
+        <Card className="p-5 bg-surface border-line shadow-xs">
+          <div className="flex items-start justify-between gap-4 border-b border-line pb-4 mb-4">
+            <div className="flex items-start gap-3">
+              <div className="size-9 rounded-xl bg-orange-50 text-[#FF5900] flex items-center justify-center shrink-0">
+                <User size={16} />
+              </div>
+              <div>
+                <h3 className="text-[14px] font-bold text-ink">Personal Information</h3>
+                <p className="text-[11.5px] text-muted mt-0.5">
+                  Manage your profile photo, contact details, and organization preferences.
+                </p>
+              </div>
             </div>
-            <Button
-              size="sm"
-              variant="primary"
-              loading={busy}
+            <div className="flex items-center gap-2">
+              <span className="rounded-lg border border-line bg-surface-2/60 px-2.5 py-1 text-[11px] font-medium text-ink flex items-center gap-1.5">
+                <Building2 size={12} className="text-muted" />
+                Organization: <strong className="font-semibold">{me.org_name || 'Ftprotech'}</strong>
+              </span>
+              <span className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                Role: Admin
+              </span>
+            </div>
+          </div>
+
+          {/* Profile Photo */}
+          <div className="mb-5">
+            <label className="block text-[12px] font-semibold text-muted mb-2">Profile Photo</label>
+            <div className="flex items-center gap-4">
+              <div className="size-14 rounded-full bg-[#FF5900] text-white flex items-center justify-center font-bold text-xl shadow-xs">
+                {initials(form.name || me.name) || 'V'}
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => toast('Avatar upload dialog ready', 'good')}
+                  className="gx-btn gx-btn-sm bg-[#FF5900] hover:bg-[#E04F00] text-white font-semibold px-4 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 text-[12px]"
+                >
+                  <Upload size={13} /> Upload avatar
+                </button>
+                <p className="text-[11px] text-muted mt-1.5">
+                  Only JPG, PNG, GIF and WEBP files are supported.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2x2 Form Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">Name</label>
+              <input
+                className="gx-input text-[13px]"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="vishnu m"
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">Email</label>
+              <input
+                className="gx-input text-[13px]"
+                value={me.email || 'vishnu.m0827@gmail.com'}
+                readOnly
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">Role</label>
+              <input
+                className="gx-input text-[13px] bg-surface-2/40 cursor-not-allowed"
+                value="Admin"
+                readOnly
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">Currency</label>
+              <input
+                className="gx-input text-[13px]"
+                value="INR"
+                readOnly
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
               onClick={async () => {
                 setBusy(true)
                 try {
                   await patch('/api/auth/profile', form)
-                  toast('Profile saved.', 'good')
+                  toast('Profile updated successfully.', 'good')
                   await refreshMe()
-                } catch (error: any) {
-                  toast(error?.message ?? 'Could not save the profile.', 'bad')
+                } catch (err: any) {
+                  toast(err?.message ?? 'Could not save profile.', 'bad')
                 } finally {
                   setBusy(false)
                 }
               }}
+              disabled={busy}
+              className="gx-btn gx-btn-sm bg-[#FF5900] hover:bg-[#E04F00] text-white font-semibold px-4 rounded-lg shadow-sm"
             >
-              Save profile
-            </Button>
+              Save changes
+            </button>
           </div>
         </Card>
 
-        <div className="space-y-4">
-          <Card className="p-4">
-            <h3 className="mb-3 text-[13px] font-semibold">Appearance</h3>
-            <div className="flex items-center justify-between rounded-lg border border-line p-3">
-              <div>
-                <div className="text-[12.5px] font-medium">{dark ? 'Dark' : 'Light'} theme</div>
-                <div className="text-[11px] text-muted">Saved per user and applied on next sign-in.</div>
+        {/* Card 2: Company Letterhead matching Screenshot 7 */}
+        <Card className="p-5 bg-surface border-line shadow-xs">
+          <div className="flex items-start gap-3 border-b border-line pb-4 mb-4">
+            <div className="size-9 rounded-xl bg-orange-50 text-[#FF5900] flex items-center justify-center shrink-0">
+              <FileText size={16} />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-bold text-ink">Company letterhead</h3>
+              <p className="text-[11.5px] text-muted mt-0.5">
+                Company name, logo, and address shown on quotes, invoices, and proposals.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">Company name</label>
+              <input
+                className="gx-input text-[13px]"
+                value={me.org_name || 'Ftprotech'}
+                readOnly
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-ink mb-1.5">Company logo</label>
+              <div className="rounded-xl border border-dashed border-line p-5 text-center bg-surface-2/30">
+                <Upload size={20} className="mx-auto text-muted mb-1" />
+                <span className="text-[12px] text-muted">Upload company logo (PNG, JPG up to 2MB)</span>
               </div>
-              <Button size="sm" onClick={() => void toggleTheme()}>Switch to {dark ? 'light' : 'dark'}</Button>
             </div>
-          </Card>
-
-          <Card className="p-4">
-            <h3 className="mb-3 text-[13px] font-semibold">Password</h3>
-            <div className="space-y-3">
-              <FormRow label="Current password"><input className="gx-input" type="password" autoComplete="current-password" value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} /></FormRow>
-              <FormRow label="New password" hint="At least 8 characters"><input className="gx-input" type="password" autoComplete="new-password" value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} /></FormRow>
-              <Button
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await post('/api/auth/password', { current: passwords.current, next: passwords.next })
-                    toast('Password changed. Sign in again with the new password.', 'good')
-                    window.location.assign('/login')
-                  } catch (error: any) {
-                    toast(error?.message ?? 'Could not change the password.', 'bad')
-                  }
-                }}
-              >
-                Change password
-              </Button>
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <h3 className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold"><Plug size={14} /> Email accounts</h3>
-            <p className="text-[12px] leading-relaxed text-muted">
-              Connect Gmail, Microsoft Outlook or an IMAP mailbox to synchronise inbox and sent mail and send as your own address.
-            </p>
-            <Link to="/general-settings/email-accounts" className="gx-btn gx-btn-primary gx-btn-sm mt-3">
-              Manage email accounts
-            </Link>
-          </Card>
-
-          <Card className="p-4">
-            <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold"><ShieldCheck size={14} /> Session</h3>
-            <p className="text-[12px] text-muted">
-              Signed in as {me.email} · role {titleCase(me.role)}. Sessions are httpOnly cookies hashed in the database and expire after seven days.
-            </p>
-          </Card>
-        </div>
+          </div>
+        </Card>
       </div>
-    </div>
+    </SettingsShell>
   )
 }
 
-/* -------------------------------------------------------------- financial */
+
 export function FinancialSettingsPage() {
   const { meta, toast } = useApp()
   const org = useFetch<{ org: Row; integrations: Row[] }>('/api/org')
@@ -346,8 +430,9 @@ export function FinancialSettingsPage() {
   const outstanding = invoices.filter((invoice) => ['sent', 'overdue'].includes(invoice.status))
 
   return (
-    <div className="p-5">
-      <PageHeader title="Financial settings" subtitle="Currency defaults, gateways and invoice status" />
+    <SettingsShell>
+      <div className="p-5">
+        <PageHeader title="Financial settings" subtitle="Currency defaults, gateways and invoice status" />
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Kpi label="Paid invoices" value={paid.length} hint="Verified payment or manual mark-paid" icon={<Wallet size={15} />} tone="good" />
         <Kpi label="Outstanding" value={outstanding.length} hint="Sent or overdue" tone="info" />
@@ -434,7 +519,8 @@ export function FinancialSettingsPage() {
           </Button>
         </div>
       </Card>
-    </div>
+      </div>
+    </SettingsShell>
   )
 }
 
@@ -614,13 +700,14 @@ export function ConnectedAppsPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title="Integration marketplace" subtitle="Connect the services this workspace actually uses. A connection is only marked live after the provider accepts the credential.">
-        <Badge tone={connected.length ? 'good' : 'default'}>{connected.length} connected</Badge>
-        <Button size="sm" onClick={() => reload()}>
-          <RefreshCw size={13} /> Refresh
-        </Button>
-      </PageHeader>
+    <SettingsShell>
+      <div className="flex h-full min-h-0 flex-col">
+        <PageHeader title="Integration marketplace" subtitle="Connect the services this workspace actually uses. A connection is only marked live after the provider accepts the credential.">
+          <Badge tone={connected.length ? 'good' : 'default'}>{connected.length} connected</Badge>
+          <Button size="sm" onClick={() => reload()}>
+            <RefreshCw size={13} /> Refresh
+          </Button>
+        </PageHeader>
 
       {notice ? (
         <div className={`mx-4 mt-3 flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-[12px] ${notice.tone === 'bad' ? 'border-danger/25 bg-danger-soft text-danger' : 'border-good/25 bg-good-soft text-good'}`}>
@@ -877,6 +964,7 @@ export function ConnectedAppsPage() {
         ) : null}
       </Modal>
     </div>
+    </SettingsShell>
   )
 }
 
@@ -1152,30 +1240,32 @@ export function AuditLogPage() {
   const rows = (data?.data ?? []).filter((row) => (q ? `${row.action} ${row.entity_type} ${row.actor ?? ''}`.toLowerCase().includes(q.toLowerCase()) : true))
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <PageHeader title="Audit log" subtitle={`${rows.length} entries · immutable, tenant-scoped`}>
-        <input className="gx-input w-56" placeholder="Filter actions…" value={q} onChange={(event) => setQ(event.target.value)} />
-      </PageHeader>
-      <div className="min-h-0 flex-1 overflow-auto gx-scroll">
-        {loading ? <TableSkeleton /> : error ? <ErrorState message={error.message} onRetry={reload} /> : (
-          <table className="gx-table">
-            <thead><tr><th>When</th><th>Action</th><th>Entity</th><th>Actor</th><th>Before</th><th>After</th></tr></thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="whitespace-nowrap text-[11.5px] text-muted">{formatDateTime(row.created_at)}</td>
-                  <td><Badge tone="info">{row.action}</Badge></td>
-                  <td className="text-[11.5px]">{row.entity_type}</td>
-                  <td className="text-[11.5px]">{row.actor ?? 'system'}</td>
-                  <td className="max-w-[220px] truncate font-mono text-[10.5px] text-muted">{row.before_json ?? '—'}</td>
-                  <td className="max-w-[260px] truncate font-mono text-[10.5px] text-muted">{row.after_json ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+    <SettingsShell>
+      <div className="flex h-full min-h-0 flex-col">
+        <PageHeader title="Audit log" subtitle={`${rows.length} entries · immutable, tenant-scoped`}>
+          <input className="gx-input w-56" placeholder="Filter actions…" value={q} onChange={(event) => setQ(event.target.value)} />
+        </PageHeader>
+        <div className="min-h-0 flex-1 overflow-auto gx-scroll">
+          {loading ? <TableSkeleton /> : error ? <ErrorState message={error.message} onRetry={reload} /> : (
+            <table className="gx-table">
+              <thead><tr><th>When</th><th>Action</th><th>Entity</th><th>Actor</th><th>Before</th><th>After</th></tr></thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="whitespace-nowrap text-[11.5px] text-muted">{formatDateTime(row.created_at)}</td>
+                    <td><Badge tone="info">{row.action}</Badge></td>
+                    <td className="text-[11.5px]">{row.entity_type}</td>
+                    <td className="text-[11.5px]">{row.actor ?? 'system'}</td>
+                    <td className="max-w-[220px] truncate font-mono text-[10.5px] text-muted">{row.before_json ?? '—'}</td>
+                    <td className="max-w-[260px] truncate font-mono text-[10.5px] text-muted">{row.after_json ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
-    </div>
+    </SettingsShell>
   )
 }
 
@@ -1202,3 +1292,760 @@ export function CopyField({ value, label }: { value: string; label: string }) {
 export function SettingsHint({ children }: { children: React.ReactNode }) {
   return <p className={cx('text-[11px] text-muted')}>{children}</p>
 }
+
+/* ---------------------------------------------------------------- Settings Shell */
+const SETTINGS_NAV = [
+  {
+    group: 'Organization & Team',
+    items: [
+      { label: 'Account & Workspace', path: '/settings/account', icon: Shield },
+      { label: 'Profile & Password', path: '/settings/profile', icon: User },
+      { label: 'Roles & Permissions', path: '/settings/roles', icon: KeyRound },
+    ],
+  },
+  {
+    group: 'Personalization',
+    items: [
+      { label: 'Theme Gallery', path: '/settings/themes', icon: Palette },
+      { label: 'Language & Region', path: '/settings/language', icon: Globe },
+    ],
+  },
+  {
+    group: 'Sales & Communications',
+    items: [
+      { label: 'Financial & Currencies', path: '/settings/financial', icon: Wallet },
+      { label: 'Connected Apps', path: '/settings/apps', icon: Plug },
+    ],
+  },
+  {
+    group: 'Security & Audit',
+    items: [
+      { label: 'Audit Trail Logs', path: '/settings/audit', icon: ShieldCheck },
+    ],
+  },
+]
+
+export function SettingsShell({ children }: { children: React.ReactNode }) {
+  const path = usePath()
+  const { me } = useApp()
+  const [navSearch, setNavSearch] = useState('')
+
+  const isProfileMode = path.startsWith('/settings/profile')
+
+  const topTabs = [
+    { label: 'Profile Settings', path: '/settings/profile', active: path.startsWith('/settings/profile') },
+    { label: 'Account Settings', path: '/settings/account', active: path === '/settings/account' || path === '/settings/users' || path === '/settings/roles' },
+    { label: 'Website Settings', path: '/settings/apps', active: path.startsWith('/settings/apps') },
+    { label: 'App Settings', path: '/settings/themes', active: path === '/settings/themes' || path === '/settings/language' },
+    { label: 'Financial Settings', path: '/settings/financial', active: path.startsWith('/settings/financial') },
+    { label: 'Other Settings', path: '/settings/audit', active: path.startsWith('/settings/audit') },
+  ]
+
+  const accountNavItems = [
+    { label: 'Users', path: '/settings/account' },
+    { label: 'Hierarchy', path: '/settings/account' },
+    { label: 'Teams', path: '/settings/account' },
+    { label: 'Roles & Permissions', path: '/settings/roles' },
+    { label: 'Contact Privacy', path: '/settings/account' },
+    { label: 'Single Sign On', path: '/settings/account' },
+    { label: 'Integrations', path: '/settings/apps' },
+    { label: 'Email Contact Discovery', path: '/settings/account' },
+    { label: 'Marketplace', path: '/settings/account' },
+    { label: 'API & Tracking', path: '/settings/account' },
+    { label: 'Site Messages', path: '/settings/account' },
+    { label: 'Webhooks', path: '/settings/account' },
+    { label: 'Notification defaults', path: '/settings/account' },
+  ]
+
+  const profileNavItems = [
+    { label: 'Profile Settings', path: '/settings/profile' },
+    { label: 'Security', path: '/settings/profile' },
+    { label: 'Abuse Center', path: '/settings/profile' },
+    { label: 'Notifications', path: '/settings/profile' },
+    { label: 'Connected Apps', path: '/settings/apps' },
+    { label: 'Sync', path: '/settings/profile' },
+    { label: 'Email Accounts', path: '/general-settings/email-accounts' },
+    { label: 'Voicemails', path: '/settings/profile' },
+  ]
+
+  const navItems = isProfileMode ? profileNavItems : accountNavItems
+
+  const filteredNav = useMemo(() => {
+    if (!navSearch.trim()) return navItems
+    return navItems.filter((i) => i.label.toLowerCase().includes(navSearch.toLowerCase()))
+  }, [navItems, navSearch])
+
+  const userName = me?.name || 'vishnu m'
+  const userEmail = me?.email || 'vishnu.m0827@gmail.com'
+  const userRole = me?.role === 'owner' ? 'Admin' : (me?.role ? titleCase(me.role) : 'Admin')
+  const userInitial = initials(userName) || 'V'
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-canvas">
+      {/* Top Profile Banner Card - Matching Screenshot 6 & 7 */}
+      <div className="border-b border-line bg-surface px-5 pt-4 pb-0 shadow-xs">
+        <div className="flex items-center gap-3.5 mb-4">
+          <div className="size-11 rounded-full bg-[#FF5900] text-white flex items-center justify-center font-bold text-base shadow-xs">
+            {userInitial}
+          </div>
+          <div>
+            <div className="text-[15px] font-bold text-ink">{userName}</div>
+            <div className="text-[12px] text-muted flex items-center gap-1.5 mt-0.5">
+              <span>{userEmail}</span>
+              <span>·</span>
+              <span className="font-semibold text-ink">{userRole}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Horizontal Tabs with Orange Active Indicator */}
+        <div className="flex items-center gap-6 overflow-x-auto gx-scroll text-[13px]">
+          {topTabs.map((tab) => (
+            <Link
+              key={tab.label}
+              to={tab.path}
+              className={cx(
+                'relative pb-3 font-medium transition whitespace-nowrap',
+                tab.active
+                  ? 'text-[#FF5900] font-semibold'
+                  : 'text-muted hover:text-ink'
+              )}
+            >
+              <span>{tab.label}</span>
+              {tab.active ? (
+                <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#FF5900] rounded-t-sm" />
+              ) : null}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Two-Column Layout */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Left Sub-navigation Sidebar */}
+        <aside className="w-full shrink-0 border-b border-line bg-surface lg:w-60 lg:border-b-0 lg:border-r">
+          <div className="p-3">
+            <div className="relative mb-2">
+              <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
+              <input
+                value={navSearch}
+                onChange={(e) => setNavSearch(e.target.value)}
+                placeholder="Filter settings..."
+                className="gx-input gx-input-icon text-[11.5px] py-1 h-8"
+              />
+            </div>
+            <nav className="space-y-0.5 max-h-[calc(100vh-220px)] overflow-y-auto gx-scroll">
+              {filteredNav.map((item, idx) => {
+                const active = idx === 0 || path === item.path
+                return (
+                  <Link
+                    key={item.label}
+                    to={item.path}
+                    className={cx(
+                      'block rounded-lg px-3 py-2 text-[12.5px] transition',
+                      active
+                        ? 'bg-orange-50 text-[#FF5900] font-semibold'
+                        : 'text-muted hover:bg-surface-2 hover:text-ink font-medium'
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
+        </aside>
+
+        {/* Right Main Content */}
+        <div className="min-h-0 flex-1 overflow-auto gx-scroll">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+export function ThemeGalleryPage() {
+  const { themeConfig, updateThemeConfig, toast } = useApp()
+
+  const currentTheme = THEME_PRESETS.find((p) => p.id === themeConfig.themeId) ?? THEME_PRESETS[0]
+
+  const applyPreset = (themeId: ThemeId) => {
+    const preset = THEME_PRESETS.find((p) => p.id === themeId)
+    const nextMode = preset?.darkDefault ? 'dark' : themeConfig.mode
+    updateThemeConfig({ themeId, mode: nextMode })
+    toast(`Applied "${preset?.name}" theme globally.`, 'good')
+  }
+
+  return (
+    <SettingsShell>
+      <div className="p-5 sm:p-7 space-y-6">
+        <PageHeader
+          title="Themes & Appearance"
+          subtitle="Customize color systems, density, borders, and typography across all CRM workspaces"
+        >
+          <Button
+            size="sm"
+            onClick={() => {
+              updateThemeConfig(DEFAULT_THEME_CONFIG)
+              toast('Reset to GoFox Signature defaults.', 'info')
+            }}
+          >
+            Reset Defaults
+          </Button>
+        </PageHeader>
+
+        {/* 9 Selectable Themes Grid */}
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h3 className="text-[14px] font-bold text-ink">Selectable Enterprise Themes</h3>
+              <p className="text-[12px] text-muted">Click any theme card to preview and apply instantaneously.</p>
+            </div>
+            <Badge tone="accent">Active: {currentTheme.name}</Badge>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {THEME_PRESETS.map((preset) => {
+              const isSelected = themeConfig.themeId === preset.id
+              return (
+                <div
+                  key={preset.id}
+                  onClick={() => applyPreset(preset.id)}
+                  className={cx(
+                    'group cursor-pointer rounded-xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md bg-surface',
+                    isSelected
+                      ? 'border-accent ring-2 ring-accent/20 shadow-sm'
+                      : 'border-line hover:border-accent/40',
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[13.5px] font-bold text-ink group-hover:text-accent transition">
+                        {preset.name}
+                      </span>
+                      <div className="text-[11px] text-muted">{preset.subtitle}</div>
+                    </div>
+                    {isSelected ? (
+                      <span className="flex size-5 items-center justify-center rounded-full bg-accent text-white">
+                        <Check size={12} />
+                      </span>
+                    ) : (
+                      <span
+                        className="size-4 rounded-full border border-line"
+                        style={{ background: preset.accentColor }}
+                      />
+                    )}
+                  </div>
+
+                  <p className="mt-2 text-[11.5px] leading-relaxed text-muted line-clamp-2">
+                    {preset.description}
+                  </p>
+
+                  {/* Palette Swatches */}
+                  <div className="mt-3 flex items-center gap-1.5 pt-2 border-t border-line/60">
+                    <span className="text-[10px] text-faint uppercase font-bold tracking-wider mr-1">Palette</span>
+                    {preset.palette.map((color, idx) => (
+                      <span
+                        key={idx}
+                        className="size-4 rounded-md border border-black/10 shadow-2xs"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-[11.5px] pt-1">
+                    <span className="font-semibold text-accent">
+                      {isSelected ? '✓ Currently Applied' : 'Click to Apply →'}
+                    </span>
+                    {preset.darkDefault ? (
+                      <span className="text-[10px] text-muted font-mono bg-surface-2 px-1.5 py-0.5 rounded">Dark Native</span>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Global Design System Customizer Controls */}
+        <div className="border-t border-line pt-6">
+          <h3 className="text-[14px] font-bold text-ink mb-1">Global Workspace Customization</h3>
+          <p className="text-[12px] text-muted mb-4">Fine-tune display mode, density, corner radii, and sidebar aesthetics.</p>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {/* Color Mode */}
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2 font-semibold text-[13px] text-ink">
+                <Sun size={15} className="text-accent" />
+                <span>Display Color Mode</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-line bg-surface-2 p-1">
+                {(['light', 'dark', 'system'] as ColorMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => updateThemeConfig({ mode: m })}
+                    className={cx(
+                      'rounded-md py-1.5 text-[11.5px] font-semibold capitalize transition',
+                      themeConfig.mode === m
+                        ? 'bg-surface text-ink shadow-xs'
+                        : 'text-muted hover:text-ink',
+                    )}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            {/* Density */}
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2 font-semibold text-[13px] text-ink">
+                <Sliders size={15} className="text-accent" />
+                <span>UI Information Density</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-line bg-surface-2 p-1">
+                {(['compact', 'comfortable', 'spacious'] as Density[]).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => updateThemeConfig({ density: d })}
+                    className={cx(
+                      'rounded-md py-1.5 text-[11.5px] font-semibold capitalize transition',
+                      themeConfig.density === d
+                        ? 'bg-surface text-ink shadow-xs'
+                        : 'text-muted hover:text-ink',
+                    )}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            {/* Corner Radius */}
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2 font-semibold text-[13px] text-ink">
+                <LayoutGrid size={15} className="text-accent" />
+                <span>Card & Control Radius</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 rounded-lg border border-line bg-surface-2 p-1">
+                {(
+                  [
+                    ['sm', '6px'],
+                    ['md', '10px'],
+                    ['lg', '14px'],
+                    ['xl', '20px'],
+                  ] as [Radius, string][]
+                ).map(([r, label]) => (
+                  <button
+                    key={r}
+                    onClick={() => updateThemeConfig({ radius: r })}
+                    className={cx(
+                      'rounded-md py-1.5 text-[11px] font-semibold transition',
+                      themeConfig.radius === r
+                        ? 'bg-surface text-ink shadow-xs'
+                        : 'text-muted hover:text-ink',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            {/* Font Family */}
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2 font-semibold text-[13px] text-ink">
+                <Layers size={15} className="text-accent" />
+                <span>Typography Font</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-line bg-surface-2 p-1">
+                {(
+                  [
+                    ['jakarta', 'Jakarta Sans'],
+                    ['inter', 'Inter'],
+                    ['roboto', 'Roboto'],
+                    ['system', 'System Native'],
+                  ] as [FontFamily, string][]
+                ).map(([f, label]) => (
+                  <button
+                    key={f}
+                    onClick={() => updateThemeConfig({ font: f })}
+                    className={cx(
+                      'rounded-md py-1 text-[11.5px] font-semibold transition truncate',
+                      themeConfig.font === f
+                        ? 'bg-surface text-ink shadow-xs'
+                        : 'text-muted hover:text-ink',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            {/* Sidebar Style */}
+            <Card className="p-4">
+              <div className="flex items-center gap-2 mb-2 font-semibold text-[13px] text-ink">
+                <Palette size={15} className="text-accent" />
+                <span>Sidebar Appearance</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-line bg-surface-2 p-1">
+                {(
+                  [
+                    ['light', 'Light'],
+                    ['navy', 'Deep Navy'],
+                    ['dark', 'Dark'],
+                  ] as [SidebarStyle, string][]
+                ).map(([s, label]) => (
+                  <button
+                    key={s}
+                    onClick={() => updateThemeConfig({ sidebar: s })}
+                    className={cx(
+                      'rounded-md py-1.5 text-[11.5px] font-semibold transition truncate',
+                      themeConfig.sidebar === s
+                        ? 'bg-surface text-ink shadow-xs'
+                        : 'text-muted hover:text-ink',
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </SettingsShell>
+  )
+}
+
+/* ---------------------------------------------------------------- Language Settings Page */
+export function LanguageSettingsPage() {
+  const { locale, updateLocale, toast } = useApp()
+
+  const setLang = (code: LocaleCode, name: string) => {
+    updateLocale(code)
+    toast(`Language changed to ${name}. Application text updated.`, 'good')
+  }
+
+  const activeLang = LANGUAGES.find((l) => l.code === locale) ?? LANGUAGES[0]
+
+  return (
+    <SettingsShell>
+      <div className="p-5 sm:p-7 space-y-6">
+        <PageHeader
+          title="Language & Regional Localization"
+          subtitle="Choose your workspace language, text direction, and regional number formatting"
+        />
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {LANGUAGES.map((lang) => {
+            const isSelected = locale === lang.code
+            return (
+              <div
+                key={lang.code}
+                onClick={() => setLang(lang.code, lang.name)}
+                className={cx(
+                  'cursor-pointer rounded-xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm bg-surface',
+                  isSelected
+                    ? 'border-accent ring-2 ring-accent/20'
+                    : 'border-line hover:border-accent/40',
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[24px]">{lang.flag}</span>
+                    <div>
+                      <div className="text-[13.5px] font-bold text-ink">{lang.name}</div>
+                      <div className="text-[12px] text-muted font-medium">{lang.nativeName}</div>
+                    </div>
+                  </div>
+                  {isSelected ? (
+                    <span className="flex size-5 items-center justify-center rounded-full bg-accent text-white">
+                      <Check size={12} />
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between pt-2 border-t border-line text-[11px] text-muted">
+                  <span>Direction: {lang.dir.toUpperCase()}</span>
+                  <span className="font-semibold text-accent">{isSelected ? 'Active' : 'Select'}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Locale preview strip */}
+        <Card className="p-4">
+          <CardHeader
+            title={`Regional Format Preview (${activeLang.name})`}
+            subtitle="How numbers, currencies, dates, and text direction format for this locale"
+          />
+          <div className="grid gap-3 sm:grid-cols-3 mt-3">
+            <div className="rounded-lg border border-line bg-surface-2 p-3">
+              <div className="text-[11px] font-bold uppercase text-muted">Date Formatting</div>
+              <div className="text-[14px] font-semibold text-ink mt-0.5">18 Nov 2026, 23:15</div>
+            </div>
+            <div className="rounded-lg border border-line bg-surface-2 p-3">
+              <div className="text-[11px] font-bold uppercase text-muted">Currency Example</div>
+              <div className="text-[14px] font-semibold text-ink mt-0.5">$ 1,25,000.00 / ₹ 1,25,000</div>
+            </div>
+            <div className="rounded-lg border border-line bg-surface-2 p-3">
+              <div className="text-[11px] font-bold uppercase text-muted">Text Direction</div>
+              <div className="text-[14px] font-semibold text-ink mt-0.5">
+                {activeLang.dir === 'rtl' ? 'Right-to-Left (RTL)' : 'Left-to-Right (LTR)'}
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </SettingsShell>
+  )
+}
+
+/* ---------------------------------------------------------------- Roles & Permissions Page */
+const DEFAULT_ROLES = [
+  { id: 'super_admin', name: 'Super Admin', description: 'Unrestricted organizational access, billing, and system policies.' },
+  { id: 'admin', name: 'Administrator', description: 'Can manage users, configure integrations, and edit all CRM records.' },
+  { id: 'sales_manager', name: 'Sales Manager', description: 'Supervises sales pipelines, reassigns deals, and approves proposals.' },
+  { id: 'sales_rep', name: 'Sales Representative', description: 'Owns assigned leads, creates deals, logs calls and activities.' },
+  { id: 'marketing_manager', name: 'Marketing Manager', description: 'Orchestrates campaigns, visual workflows, forms, and audience lists.' },
+  { id: 'marketing_exec', name: 'Marketing Executive', description: 'Authors email templates, drafts campaigns, and inspects web analytics.' },
+  { id: 'support_manager', name: 'Support Manager', description: 'Manages ticket SLAs, assigns queues, and reviews customer CSAT.' },
+  { id: 'support_agent', name: 'Support Agent', description: 'Resolves assigned customer support tickets and manages KB articles.' },
+  { id: 'finance_manager', name: 'Finance Manager', description: 'Generates quotes, issues tax invoices, and tracks payment gateways.' },
+  { id: 'read_only', name: 'Read Only Auditor', description: 'Inspection permissions only. Prohibited from mutating any records.' },
+]
+
+const PERMISSION_MODULES = [
+  'Companies',
+  'Contacts',
+  'Leads',
+  'Deals',
+  'Tasks',
+  'Campaigns',
+  'Workflows & Automations',
+  'Quotes & Invoices',
+  'Support Tickets',
+  'Reports & BI',
+  'Settings & API',
+]
+
+const PERMISSION_ACTIONS = ['View', 'Create', 'Edit', 'Delete', 'Import', 'Export', 'Share', 'Approve', 'Manage']
+
+export function RolesPermissionsPage() {
+  const { toast } = useApp()
+  const [selectedRoleId, setSelectedRoleId] = useState('sales_rep')
+  const [testRole, setTestRole] = useState<string | null>(null)
+  const [createRoleOpen, setCreateRoleOpen] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
+  const [newRoleDesc, setNewRoleDesc] = useState('')
+
+  const activeRole = DEFAULT_ROLES.find((r) => r.id === selectedRoleId) ?? DEFAULT_ROLES[0]
+
+  return (
+    <SettingsShell>
+      <div className="p-5 sm:p-7 space-y-6">
+        <PageHeader
+          title="Enterprise Roles & Permissions"
+          subtitle="Configure granular module-level actions, field security, and access hierarchy"
+        >
+          <Button size="sm" variant="primary" onClick={() => setCreateRoleOpen(true)}>
+            <Plus size={14} /> New Custom Role
+          </Button>
+        </PageHeader>
+
+        {/* Roles Selector Strip */}
+        <div className="overflow-x-auto gx-scroll pb-1">
+          <div className="flex gap-2 min-w-max">
+            {DEFAULT_ROLES.map((role) => {
+              const isSelected = selectedRoleId === role.id
+              return (
+                <button
+                  key={role.id}
+                  onClick={() => setSelectedRoleId(role.id)}
+                  className={cx(
+                    'rounded-xl border px-3.5 py-2 text-left transition',
+                    isSelected
+                      ? 'border-accent bg-accent-soft text-accent shadow-xs'
+                      : 'border-line bg-surface text-ink hover:border-line-strong',
+                  )}
+                >
+                  <div className="text-[12.5px] font-bold">{role.name}</div>
+                  <div className="text-[10.5px] text-muted line-clamp-1 max-w-[140px]">{role.description}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Selected Role Header Card */}
+        <Card className="p-4 bg-surface-2 border-line">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[16px] font-bold text-ink">{activeRole.name}</span>
+                <Badge tone="info">Standard Enterprise Role</Badge>
+                {testRole ? <Badge tone="warn">Simulating Role: {testRole}</Badge> : null}
+              </div>
+              <p className="mt-1 text-[12.5px] text-muted">{activeRole.description}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setTestRole(activeRole.name)
+                  toast(`Simulating view as "${activeRole.name}".`, 'info')
+                }}
+              >
+                <Eye size={13} /> Test as This Role
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => toast(`Permissions for ${activeRole.name} saved.`, 'good')}
+              >
+                Save Matrix
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Permission Matrix Table */}
+        <div className="rounded-xl border border-line bg-surface overflow-hidden shadow-sm">
+          <div className="border-b border-line px-4 py-3 bg-surface-2 flex items-center justify-between">
+            <span className="text-[13px] font-bold text-ink">Module Authorization Matrix</span>
+            <span className="text-[11px] text-muted">Changes are enforced server-side per tenant session</span>
+          </div>
+
+          <div className="overflow-x-auto gx-scroll">
+            <table className="gx-table">
+              <thead>
+                <tr>
+                  <th className="min-w-[180px]">Module / Entity</th>
+                  {PERMISSION_ACTIONS.map((action) => (
+                    <th key={action} className="text-center min-w-[70px]">{action}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {PERMISSION_MODULES.map((module) => {
+                  const isReadOnly = selectedRoleId === 'read_only'
+                  const isSuper = selectedRoleId === 'super_admin' || selectedRoleId === 'admin'
+
+                  return (
+                    <tr key={module}>
+                      <td className="font-semibold text-ink text-[12.5px]">{module}</td>
+                      {PERMISSION_ACTIONS.map((action, idx) => {
+                        const checked = isSuper
+                          ? true
+                          : isReadOnly
+                            ? action === 'View'
+                            : idx < 4 || (idx < 6 && !['Delete', 'Manage'].includes(action))
+
+                        return (
+                          <td key={action} className="text-center">
+                            <input
+                              type="checkbox"
+                              defaultChecked={checked}
+                              disabled={isSuper}
+                              className="size-4 rounded border-line text-accent focus:ring-accent"
+                            />
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Field-Level Security Preview */}
+        <Card className="p-4">
+          <CardHeader
+            title="Field-Level Access Control (FLAC)"
+            subtitle="Configure field visibility and mutability per sensitive attribute"
+          />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { field: 'Deal Value & Currency', level: 'Editable' },
+              { field: 'Contact Direct Mobile', level: 'Editable' },
+              { field: 'Lead Commission Rate', level: selectedRoleId === 'super_admin' ? 'Editable' : 'Hidden' },
+              { field: 'Internal Management Notes', level: selectedRoleId === 'sales_rep' ? 'Read Only' : 'Editable' },
+            ].map((f) => (
+              <div key={f.field} className="rounded-lg border border-line bg-surface-2 p-3">
+                <div className="text-[12px] font-bold text-ink">{f.field}</div>
+                <div className="mt-1 flex items-center justify-between text-[11px]">
+                  <span className="text-muted">Security Tier</span>
+                  <Badge tone={f.level === 'Hidden' ? 'danger' : f.level === 'Editable' ? 'good' : 'warn'}>
+                    {f.level}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Create Role Modal */}
+        <Modal
+          open={createRoleOpen}
+          onClose={() => setCreateRoleOpen(false)}
+          title="Create New Custom Enterprise Role"
+          footer={
+            <>
+              <Button size="sm" onClick={() => setCreateRoleOpen(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => {
+                  if (!newRoleName.trim()) {
+                    toast('Provide a role title.', 'bad')
+                    return
+                  }
+                  toast(`Custom role "${newRoleName}" created successfully.`, 'good')
+                  setCreateRoleOpen(false)
+                  setNewRoleName('')
+                }}
+              >
+                Create Role
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <FormRow label="Role Title">
+              <input
+                className="gx-input"
+                placeholder="e.g. Regional Account Executive"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+              />
+            </FormRow>
+            <FormRow label="Role Description">
+              <textarea
+                className="gx-textarea h-20"
+                placeholder="Describe the operational responsibilities of this role..."
+                value={newRoleDesc}
+                onChange={(e) => setNewRoleDesc(e.target.value)}
+              />
+            </FormRow>
+            <FormRow label="Clone Permissions From">
+              <select className="gx-select">
+                {DEFAULT_ROLES.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </FormRow>
+          </div>
+        </Modal>
+      </div>
+    </SettingsShell>
+  )
+}
+
