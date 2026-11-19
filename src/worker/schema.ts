@@ -387,6 +387,22 @@ CREATE TABLE IF NOT EXISTS campaigns (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS campaign_recipients (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  campaign_id TEXT NOT NULL,
+  contact_id TEXT,
+  contact_name TEXT,
+  email TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'delivered',
+  delivered_at TEXT,
+  opened_at TEXT,
+  clicked_at TEXT,
+  error_message TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign ON campaign_recipients(org_id, campaign_id);
+
 CREATE TABLE IF NOT EXISTS sequences (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,

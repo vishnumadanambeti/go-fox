@@ -192,9 +192,11 @@ function WorkspaceRoutes({ path }: { path: string }) {
   if (path === '/marketing/emails') return <EmailStudioPage />
   const emailEditor = param('/marketing/emails/:id/edit')
   if (emailEditor) return <EmailStudioEditor id={emailEditor.id} key={emailEditor.id} />
-  if (path === '/marketing/campaigns') return <CampaignsPage />
-  if (path === '/marketing/campaigns/new') return <CampaignWizardPage />
-  const campaign = param('/marketing/campaigns/:id')
+  if (path === '/marketing/campaigns' || path === '/crm/campaign' || path === '/crm/campaigns') return <CampaignsPage />
+  if (path === '/marketing/campaigns/new' || path === '/crm/campaigns/new') return <CampaignWizardPage />
+  const campaignWizard = param('/marketing/campaigns/:id/wizard') || param('/crm/campaigns/:id/wizard')
+  if (campaignWizard) return <CampaignWizardPage campaignId={campaignWizard.id} />
+  const campaign = param('/marketing/campaigns/:id') || param('/crm/campaigns/:id')
   if (campaign) return <CampaignDetailPage id={campaign.id} />
   if (path === '/marketing/sequences') return <SequencesPage />
   const sequence = param('/marketing/sequences/:id')

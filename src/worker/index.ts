@@ -436,7 +436,18 @@ app.get('/api/resources/:entity/:id', async (c) => {
   )
     .bind(user.org_id, c.req.param('id'), c.req.param('entity'), def.table, singular)
     .all()
-  return c.json({ record: row, activity: activity.results })
+  let recipients: unknown[] = []
+  if (def.table === 'campaigns') {
+    try {
+      const rec = await c.env.DB.prepare(
+        `SELECT * FROM campaign_recipients WHERE org_id = ? AND campaign_id = ? ORDER BY created_at DESC LIMIT 200`
+      ).bind(user.org_id, c.req.param('id')).all()
+      recipients = rec.results
+    } catch {
+      recipients = []
+    }
+  }
+  return c.json({ record: row, activity: activity.results, recipients })
 })
 
 app.post('/api/resources/:entity', async (c) => {
@@ -1096,6 +1107,14 @@ app.post('/api/campaigns/:id/status', async (c) => {
     .run()
   await logActivity(c.env, user.org_id, user.id, 'campaign.status', 'campaign', c.req.param('id'), `Campaign status set to ${body.status}`)
   return c.json({ ok: true })
+})
+
+app.get('/api/campaigns/:id/recipients', async (c) => {
+  const user = c.get('user')
+  const recipients = await c.env.DB.prepare(
+    `SELECT * FROM campaign_recipients WHERE org_id = ? AND campaign_id = ? ORDER BY created_at DESC LIMIT 200`
+  ).bind(user.org_id, c.req.param('id')).all()
+  return c.json({ data: recipients.results })
 })
 
 // ------------------------------------------------------------------- forms
