@@ -86,6 +86,22 @@ function TemplateThumb({ html, accent }: { html: string; accent: string }) {
   )
 }
 
+const EMAIL_CATEGORIES = [
+  'All',
+  'Transactional',
+  'Onboarding',
+  'Promotional',
+  'E-Commerce',
+  'Behavioral',
+  'Newsletter',
+  'Events',
+  'Sales',
+  'Corporate',
+  'Education',
+  'Seasonal',
+  'Customer success',
+]
+
 /* --------------------------------------------------------------- gallery */
 
 export function EmailStudioPage() {
@@ -102,9 +118,6 @@ export function EmailStudioPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [seeding, setSeeding] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-
-  if (loading) return <Spinner label="Loading email templates..." />
-  if (error) return <ErrorState message={error.message} onRetry={reload} />
 
   const seedAllToWorkspace = async () => {
     setSeeding(true)
@@ -191,24 +204,10 @@ export function EmailStudioPage() {
   ]
 
   const rows = rawRows.length > 0 ? rawRows : fallbackRows
+  const categories = EMAIL_CATEGORIES
 
-  const categories = useMemo(() => {
-    return [
-      'All',
-      'Transactional',
-      'Onboarding',
-      'Promotional',
-      'E-Commerce',
-      'Behavioral',
-      'Newsletter',
-      'Events',
-      'Sales',
-      'Corporate',
-      'Education',
-      'Seasonal',
-      'Customer success',
-    ]
-  }, [])
+  if (loading) return <Spinner label="Loading email templates..." />
+  if (error) return <ErrorState message={error.message} onRetry={reload} />
 
   const filteredPresets = EMAIL_PRESETS.filter((preset) => {
     if (category !== 'All' && preset.category.toLowerCase() !== category.toLowerCase()) return false

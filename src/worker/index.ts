@@ -3283,7 +3283,7 @@ app.post('/api/telephony/dial', async (c) => {
   const number = String(body.number ?? '').replace(/[^\d+]/g, '')
   if (number.length < 7) return fail(c, 'VALIDATION_ERROR', 'Enter a valid phone number.', 422)
   const connection = await loadConnection(c.env, user.org_id, 'twilio')
-  const from = String(connection?.config.from ?? (c.env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const from = String(connection?.config.from ?? connection?.config.from_number ?? connection?.account ?? (c.env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
   if (!connection) {
     await logActivity(c.env, user.org_id, user.id, 'call.blocked', 'call', body.contact_id ?? null, `Dial pad attempt to ${number} blocked: Twilio is not connected`)
     return fail(c, 'PROVIDER_NOT_CONNECTED', 'Twilio is not connected, so no call was placed. Connect it in Connected apps.', 409)

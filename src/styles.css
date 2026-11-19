@@ -46,28 +46,64 @@
 }
 
 .dark {
-  --color-canvas: #0d0f12;
-  --color-surface: #15181d;
-  --color-surface-2: #1a1e24;
-  --color-raised: #1c2027;
-  --color-line: #262b33;
-  --color-line-strong: #343a44;
-  --color-ink: #f2f4f7;
-  --color-muted: #9aa3b0;
-  --color-faint: #6d7683;
-  --color-accent: #fb8a3c;
-  --color-accent-hover: #ff9d5c;
-  --color-accent-soft: #2a1a0e;
-  --color-good: #4ade80;
-  --color-good-soft: #10251a;
-  --color-warn: #fbbf24;
-  --color-warn-soft: #2a2008;
-  --color-danger: #f87171;
-  --color-danger-soft: #2b1213;
-  --color-info: #93b4ff;
-  --color-info-soft: #131b33;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --color-canvas: #090d16;
+  --color-surface: #0f172a;
+  --color-surface-2: #1e293b;
+  --color-surface-3: #334155;
+  --color-raised: #1e293b;
+  --color-line: #1e293b;
+  --color-line-strong: #334155;
+  --color-ink: #f8fafc;
+  --color-muted: #94a3b8;
+  --color-faint: #64748b;
+  --color-accent: #f97316;
+  --color-accent-hover: #ea580c;
+  --color-accent-soft: rgba(249, 115, 22, 0.15);
+  --color-good: #10b981;
+  --color-good-soft: rgba(16, 185, 129, 0.15);
+  --color-warn: #f59e0b;
+  --color-warn-soft: rgba(245, 158, 11, 0.15);
+  --color-danger: #ef4444;
+  --color-danger-soft: rgba(239, 68, 68, 0.15);
+  --color-info: #3b82f6;
+  --color-info-soft: rgba(59, 130, 246, 0.15);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.4);
   --shadow-pop: 0 24px 48px -16px rgb(0 0 0 / 0.7);
+}
+
+.dark .gx-btn {
+  background: linear-gradient(180deg, #1e293b 0%, #152238 100%);
+  color: #f8fafc;
+  border-color: #334155;
+}
+.dark .gx-btn:hover {
+  background: #24344d;
+  border-color: #475569;
+}
+.dark .gx-input,
+.dark .gx-select,
+.dark .gx-textarea {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
+}
+.dark .gx-input:focus,
+.dark .gx-select:focus,
+.dark .gx-textarea:focus {
+  background: #0f172a;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+.dark .gx-card {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+/* Hardware-accelerate main shells for smooth 60-120fps scrolling */
+.gx-sidebar, main {
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* ------------------------------------------------------------- Theme Engine Tokens */
@@ -291,7 +327,7 @@
   font-size: 13.5px;
   color: var(--color-ink);
   box-shadow: 0 1px 2px 0 rgb(16 24 40 / 0.02);
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
 }
 .gx-textarea {
   min-height: 84px;
@@ -346,7 +382,7 @@
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 1px 2px 0 rgb(16 24 40 / 0.04);
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
 }
 .gx-btn:hover {
   background: #f8fafc;

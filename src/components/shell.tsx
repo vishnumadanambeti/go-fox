@@ -295,13 +295,13 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
         className={cx(
           'gx-nav-item flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
           active
-            ? 'bg-[#fff4eb] text-[#ff7417] font-semibold'
-            : 'text-[#344054] hover:bg-[#f2f4f7] hover:text-[#101828]',
+            ? 'bg-accent/10 text-accent font-semibold dark:bg-accent/15 dark:text-accent shadow-xs'
+            : 'text-muted hover:bg-surface-2 hover:text-ink',
         )}
         title={collapsed ? navItem.label : undefined}
         aria-label={navItem.label}
       >
-        <span className={cx('shrink-0', active ? 'text-[#ff7417]' : 'text-[#667085]')}>{navItem.icon}</span>
+        <span className={cx('shrink-0', active ? 'text-accent' : 'text-faint')}>{navItem.icon}</span>
         {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
       </Link>
     )
@@ -312,21 +312,21 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
       {/* Brand Header */}
       <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-line px-3.5">
         <Link to="/" className="flex min-w-0 items-center gap-2">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#ff7417] text-white shadow-sm">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-sm">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 6c0 6 2 9 8 9V9c0-2 2-3 4-3h4" />
               <circle cx="18" cy="6" r="2" fill="currentColor" stroke="none" />
             </svg>
           </span>
           {!collapsed ? (
-            <span className="flex items-center gap-1 font-bold text-[19px] tracking-tight text-[#182230] dark:text-white">
+            <span className="flex items-center gap-1 font-bold text-[19px] tracking-tight text-ink">
               <span>go</span>
-              <span className="text-[#ff7417]">fox</span>
+              <span className="text-accent">fox</span>
             </span>
           ) : null}
         </Link>
         <button
-          className="flex size-7 items-center justify-center rounded-md text-[#667085] hover:bg-[#f2f4f7] hover:text-[#182230] dark:hover:bg-white/10"
+          className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-surface-2 hover:text-ink transition-colors"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           onClick={onCollapse}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -360,11 +360,11 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
                     onClick={() => toggleGroup(group.title)}
                     className={cx(
                       'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
-                      isGroupActive ? 'text-[#ff7417] font-semibold' : 'text-[#344054] hover:bg-[#f2f4f7] hover:text-[#101828]',
+                      isGroupActive ? 'text-accent font-semibold' : 'text-muted hover:bg-surface-2 hover:text-ink',
                     )}
                   >
                     <span className="flex items-center gap-2.5 truncate">
-                      <span className={cx(isGroupActive ? 'text-[#ff7417]' : 'text-[#667085]')}>
+                      <span className={cx(isGroupActive ? 'text-accent' : 'text-faint')}>
                         {group.title === 'Marketing' && <Megaphone size={16} />}
                         {group.title === 'Sales' && <Handshake size={16} />}
                         {group.title === 'Support' && <Headphones size={16} />}
@@ -375,7 +375,7 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
                     </span>
                     <ChevronDown
                       size={14}
-                      className={cx('text-[#667085] transition-transform duration-150', !isGroupOpen && '-rotate-90')}
+                      className={cx('text-faint transition-transform duration-150', !isGroupOpen && '-rotate-90')}
                     />
                   </button>
                   {isGroupOpen ? (

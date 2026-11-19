@@ -298,7 +298,7 @@ export async function sendSms(
 ): Promise<{ ok: true; sid: string } | { ok: false; status: number; error: string }> {
   const stored = await loadConnection(env, orgId, 'twilio')
   if (!stored) return { ok: false, status: 409, error: 'Twilio is not connected, so no SMS was sent. Connect it in Connected apps.' }
-  const from = String(stored.config.from ?? (env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const from = String(stored.config.from ?? stored.config.from_number ?? stored.account ?? (env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
   if (!from) return { ok: false, status: 409, error: 'Twilio is connected but no sending number is configured. Add one in the Twilio setup panel.' }
   const [sid, token] = stored.access_token.split(':')
   const res = await call(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
