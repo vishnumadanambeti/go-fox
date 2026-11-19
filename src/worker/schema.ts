@@ -275,6 +275,7 @@ CREATE TABLE IF NOT EXISTS calls (
   outcome TEXT,
   notes TEXT,
   provider TEXT,
+  recording_url TEXT,
   deleted_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

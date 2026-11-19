@@ -587,9 +587,9 @@
 .gx-scrim {
   position: fixed;
   inset: 0;
-  background: rgb(12 16 22 / 0.38);
-  backdrop-filter: blur(1.5px);
-  z-index: 60;
+  background: rgb(12 16 22 / 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 80;
   animation: gx-fade 0.16s ease-out;
 }
 .gx-drawer {
@@ -599,7 +599,7 @@
   bottom: 0;
   width: min(520px, 100vw);
   background: var(--color-surface);
-  z-index: 61;
+  z-index: 85;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-pop);
@@ -610,7 +610,7 @@
 }
 .gx-modal {
   position: fixed;
-  z-index: 61;
+  z-index: 90;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);

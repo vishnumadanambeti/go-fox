@@ -22,7 +22,7 @@ import {
   cx,
 } from '../components/ui'
 import { Donut } from '../components/charts'
-import { RecordDetailPage, ResourcePage } from '../components/resource'
+import { RecordDetailPage, RecordFormDrawer, ResourcePage } from '../components/resource'
 import { WorkflowRunsPage } from './automation'
 
 /* --------------------------------------------------------------- dashboard */
@@ -117,6 +117,7 @@ export function SupportDashboardPage() {
 /* ------------------------------------------------------------------ tickets */
 export function TicketsPage() {
   const { meta } = useApp()
+  const [formOpen, setFormOpen] = useState(() => typeof window !== 'undefined' && window.location.search.includes('new=1'))
   const [status, setStatus] = useState('open')
   const [priority, setPriority] = useState('')
   const { data, loading, error, reload } = useFetch<{ data: Row[] }>('/api/resources/tickets?limit=100&sort=created_at&dir=desc')
@@ -134,9 +135,13 @@ export function TicketsPage() {
           <option value="">All priorities</option>
           {['urgent', 'high', 'medium', 'low'].map((option) => <option key={option} value={option}>{titleCase(option)}</option>)}
         </select>
-        <Link to="/support/tickets?new=1" className="gx-btn gx-btn-primary gx-btn-sm" onClick={() => undefined}>
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => setFormOpen(true)}
+        >
           <Plus size={14} /> New ticket
-        </Link>
+        </Button>
       </PageHeader>
       <div className="border-b border-line px-5">
         <Tabs
@@ -179,6 +184,25 @@ export function TicketsPage() {
           </table>
         )}
       </div>
+
+      <RecordFormDrawer
+        entity="tickets"
+        open={formOpen}
+        record={null}
+        onClose={() => {
+          setFormOpen(false)
+          if (typeof window !== 'undefined' && window.location.search.includes('new=1')) {
+            window.history.replaceState({}, '', '/support/tickets')
+          }
+        }}
+        onSaved={() => {
+          setFormOpen(false)
+          if (typeof window !== 'undefined' && window.location.search.includes('new=1')) {
+            window.history.replaceState({}, '', '/support/tickets')
+          }
+          reload()
+        }}
+      />
     </div>
   )
 }

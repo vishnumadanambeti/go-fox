@@ -276,12 +276,40 @@ app.get('/api/meta', async (c) => {
       c.env.DB.prepare(`SELECT id, name, status FROM sequences WHERE org_id = ? AND deleted_at IS NULL ORDER BY name`).bind(org).all(),
       c.env.DB.prepare(`SELECT id, number, doc_type FROM documents WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 200`).bind(org).all(),
     ])
+  let stagesList = stages.results as any[]
+  let pipelinesList = pipelines.results as any[]
+  if (!stagesList || stagesList.length === 0) {
+    let pipelineId = pipelinesList[0]?.id
+    if (!pipelineId) {
+      pipelineId = uid()
+      await c.env.DB.prepare(`INSERT INTO pipelines (id, org_id, name, is_default, created_at) VALUES (?, ?, 'Sales Pipeline', 1, ?)`).bind(pipelineId, org, nowIso()).run()
+      pipelinesList = [{ id: pipelineId, name: 'Sales Pipeline' }]
+    }
+    const defaultStages = [
+      ['Qualification', 10],
+      ['Discovery', 25],
+      ['Proposal', 55],
+      ['Negotiation', 75],
+      ['Closed Won', 100],
+      ['Closed Lost', 0],
+    ] as const
+    stagesList = []
+    for (let i = 0; i < defaultStages.length; i++) {
+      const sId = uid()
+      await c.env.DB.prepare(`INSERT INTO stages (id, org_id, pipeline_id, name, position, probability, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(sId, org, pipelineId, defaultStages[i][0], i, defaultStages[i][1], nowIso()).run()
+      stagesList.push({ id: sId, name: defaultStages[i][0], pipeline_id: pipelineId, position: i, probability: defaultStages[i][1] })
+    }
+    if (stagesList.length > 0) {
+      await c.env.DB.prepare(`UPDATE deals SET stage_id = ?, pipeline_id = ? WHERE org_id = ? AND (stage_id IS NULL OR stage_id = '' OR stage_id NOT IN (SELECT id FROM stages WHERE org_id = ?))`).bind(stagesList[0].id, pipelineId, org, org).run()
+    }
+  }
+
   return c.json({
     users: users.results,
     companies: companies.results,
     contacts: contacts.results,
-    stages: stages.results,
-    pipelines: pipelines.results,
+    stages: stagesList,
+    pipelines: pipelinesList,
     lists: lists.results,
     templates: templates.results,
     forms: forms.results,
@@ -3334,6 +3362,8 @@ app.post('/api/telephony/dial', async (c) => {
     To: number,
     From: from,
     Twiml: twiml,
+    Record: 'true',
+    RecordingChannels: 'dual',
   }
   // Twilio only accepts public URLs for Url parameter, so on localhost use Twiml directly
   if (!origin.includes('localhost') && !origin.includes('127.0.0.1')) {
@@ -3351,14 +3381,15 @@ app.post('/api/telephony/dial', async (c) => {
     await logActivity(c.env, user.org_id, user.id, 'call.failed', 'call', body.contact_id ?? null, `Call to ${number} failed: ${detail}`)
     return fail(c, 'PROVIDER_ERROR', detail, 502)
   }
+  const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Calls/${data.sid}/Recordings`
   await c.env.DB.prepare(
-    `INSERT INTO calls (id, org_id, owner_id, direction, status, started_at, contact_id, number, provider, outcome, notes, created_at, updated_at)
-     VALUES (?, ?, ?, 'outbound', 'queued', ?, ?, ?, 'twilio', ?, ?, ?, ?)`,
+    `INSERT INTO calls (id, org_id, owner_id, direction, status, started_at, contact_id, number, provider, recording_url, outcome, notes, created_at, updated_at)
+     VALUES (?, ?, ?, 'outbound', 'in-progress', ?, ?, ?, 'twilio', ?, ?, ?, ?, ?)`,
   )
-    .bind(uid(), user.org_id, user.id, nowIso(), body.contact_id ?? null, number, data.sid, `Placed from ${from} via the dial pad`, nowIso(), nowIso())
+    .bind(uid(), user.org_id, user.id, nowIso(), body.contact_id ?? null, number, recordingUrl, `Placed from ${from} via dial pad · Dual-channel call recording active`, `Twilio SID ${data.sid}`, nowIso(), nowIso())
     .run()
-  await logActivity(c.env, user.org_id, user.id, 'call.placed', 'call', body.contact_id ?? null, `Call to ${number} queued (Twilio ${data.sid})`)
-  return c.json({ ok: true, sid: data.sid, status: data.status ?? 'queued' })
+  await logActivity(c.env, user.org_id, user.id, 'call.placed', 'call', body.contact_id ?? null, `Call to ${number} queued with recording enabled (Twilio ${data.sid})`)
+  return c.json({ ok: true, sid: data.sid, status: data.status ?? 'queued', recording_url: recordingUrl })
 })
 
 app.post('/api/inbox/send', async (c) => {

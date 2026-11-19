@@ -300,7 +300,16 @@ export function DealsPage() {
   const [ownerFilter, setOwnerFilter] = useState('')
   const { data, loading, error, reload } = useFetch<{ data: Row[]; total: number }>('/api/resources/deals?limit=100&sort=value&dir=desc')
 
-  const stages = meta?.stages ?? []
+  const stages = useMemo(() => {
+    if (meta?.stages && meta.stages.length > 0) return meta.stages
+    return [
+      { id: 'stage-qual', name: 'Qualification', probability: 10 },
+      { id: 'stage-disc', name: 'Discovery', probability: 25 },
+      { id: 'stage-prop', name: 'Proposal', probability: 55 },
+      { id: 'stage-nego', name: 'Negotiation', probability: 75 },
+      { id: 'stage-won', name: 'Closed Won', probability: 100 },
+    ]
+  }, [meta?.stages])
   const allDeals = (data?.data ?? []).filter((deal) => deal.status !== 'lost')
 
   const filteredDeals = allDeals.filter((deal) => {
@@ -405,7 +414,11 @@ export function DealsPage() {
           {/* Competitor PDF Page 39 - Kanban Board with Stage Totals */}
           <div className="flex min-h-[380px] gap-3.5">
             {stages.map((stage, stageIdx) => {
-              const deals = filteredDeals.filter((deal) => deal.stage_id === stage.id)
+              const deals = filteredDeals.filter((deal) => {
+                if (deal.stage_id === stage.id) return true
+                if (stageIdx === 0 && (!deal.stage_id || !stages.some((s) => s.id === deal.stage_id))) return true
+                return false
+              })
               const value = deals.reduce((sum, deal) => sum + Number(deal.value ?? 0), 0)
               const isWon = stage.name.toLowerCase().includes('won')
               const isLost = stage.name.toLowerCase().includes('lost')
@@ -526,7 +539,16 @@ export function DealsPage() {
 /* ------------------------------------------------------------- deal detail */
 export function DealDetailPage({ id }: { id: string }) {
   const { meta, toast } = useApp()
-  const stages = meta?.stages ?? []
+  const stages = useMemo(() => {
+    if (meta?.stages && meta.stages.length > 0) return meta.stages
+    return [
+      { id: 'stage-qual', name: 'Qualification', probability: 10 },
+      { id: 'stage-disc', name: 'Discovery', probability: 25 },
+      { id: 'stage-prop', name: 'Proposal', probability: 55 },
+      { id: 'stage-nego', name: 'Negotiation', probability: 75 },
+      { id: 'stage-won', name: 'Closed Won', probability: 100 },
+    ]
+  }, [meta?.stages])
 
   return (
     <RecordDetailPage

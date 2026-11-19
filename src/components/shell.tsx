@@ -429,6 +429,12 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   const [notifOpen, setNotifOpen] = useState(false)
 
   useEffect(() => {
+    const handler = () => setDialOpen(true)
+    window.addEventListener('gofox:dial', handler)
+    return () => window.removeEventListener('gofox:dial', handler)
+  }, [])
+
+  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
@@ -1304,11 +1310,20 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
 
   useEffect(() => {
     if (open) {
-      setNumber('')
       setError(null)
       setCalled(false)
     }
   }, [open])
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail?.number) {
+        setNumber(e.detail.number)
+      }
+    }
+    window.addEventListener('gofox:dial', handler)
+    return () => window.removeEventListener('gofox:dial', handler)
+  }, [])
 
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
   const call = async () => {
@@ -1329,7 +1344,7 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <>
       <div className="gx-scrim" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-[61] flex w-[320px] flex-col bg-surface shadow-[var(--shadow-pop)] border-l border-line animate-in slide-in-from-right duration-200">
+      <div className="fixed inset-y-0 right-0 z-[95] flex w-[320px] flex-col bg-surface shadow-[var(--shadow-pop)] border-l border-line animate-in slide-in-from-right duration-200">
         {/* Header matching Page 3 top */}
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-line px-4 bg-surface">
           <span className="text-[12px] font-bold uppercase tracking-wider text-[#667085]">DIAL PAD</span>
@@ -1389,19 +1404,28 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
             disabled={busy || number.replace(/\D/g, '').length < 3}
           >
             <Phone size={16} />
-            <span>Call</span>
+            <span>{busy ? 'Calling…' : 'Call'}</span>
           </button>
 
           {called ? (
-            <div className="rounded-lg border border-[#a6f4c5] bg-[#edfcf2] p-2.5 text-[12px] text-[#037847]">
-              Call logged in CRM telephony records.
+            <div className="rounded-xl border border-[#a6f4c5] bg-[#edfcf2] p-3 text-[12px] text-[#037847] space-y-1.5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[12.5px]">Call connected</span>
+                <span className="flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10.5px] font-bold text-rose-600 border border-rose-500/20">
+                  <span className="size-1.5 rounded-full bg-rose-600 animate-ping" />
+                  REC ACTIVE
+                </span>
+              </div>
+              <div className="text-[11px] text-[#025a35] leading-relaxed">
+                Twilio dual-channel audio recording is active. All attempt logs and audio recordings are saved to your CRM timeline.
+              </div>
             </div>
           ) : null}
 
           {error ? <div className="rounded-lg border border-[#fecdca] bg-[#fef3f2] p-2.5 text-[12px] text-[#b42318]">{error}</div> : null}
 
           <div className="rounded-lg border border-line bg-surface-2 p-2.5 text-[11px] text-[#667085] leading-relaxed">
-            Calls use your configured workspace telephony or mock logger. All attempts are saved to your activity timeline.
+            Calls use your configured workspace telephony (Twilio). All attempts are recorded and saved to your contact timeline.
           </div>
         </div>
       </div>

@@ -2856,10 +2856,10 @@ export function ContactDetailPage({ id }: { id: string }) {
                   <Mail size={14} />
                 </button>
                 <button
-                  title="Call Phone"
+                  title="Call Phone (Twilio Dial Pad with Recording)"
                   onClick={() => {
                     if (contact.phone) {
-                      window.open(`tel:${contact.phone}`)
+                      window.dispatchEvent(new CustomEvent('gofox:dial', { detail: { number: contact.phone, contact_id: contact.id } }))
                     } else {
                       toast('No phone number on file for this contact.', 'bad')
                     }

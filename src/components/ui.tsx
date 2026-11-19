@@ -279,8 +279,8 @@ export function Drawer({
             <X size={16} />
           </IconButton>
         </div>
-        <div className="flex-1 overflow-y-auto gx-scroll px-5 py-4">{children}</div>
-        {footer ? <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">{footer}</div> : null}
+        <div className="flex-1 overflow-y-auto gx-scroll px-5 py-4 pb-10">{children}</div>
+        {footer ? <div className="flex items-center justify-end gap-2 border-t border-line bg-surface px-5 py-3.5 shrink-0 z-10">{footer}</div> : null}
       </aside>
     </>
   )
