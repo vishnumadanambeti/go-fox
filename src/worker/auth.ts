@@ -13,6 +13,8 @@ export type SessionUser = {
   role: Role
   title: string | null
   avatar_hue: number
+  avatar_url?: string | null
+  photo_url?: string | null
   theme: string
   locale: string
   timezone: string | null
@@ -163,7 +165,7 @@ export function clearSessionCookie(c: Context) {
 }
 
 const USER_SELECT = `
-  SELECT u.id, u.org_id, u.email, u.name, u.role, u.title, u.avatar_hue, u.theme, u.locale,
+  SELECT u.id, u.org_id, u.email, u.name, u.role, u.title, u.avatar_hue, u.avatar_url, u.avatar_url AS photo_url, u.theme, u.locale,
          u.timezone, o.name AS org_name, o.currency, o.timezone AS org_timezone
   FROM users u JOIN orgs o ON o.id = u.org_id
   WHERE u.status = 'active'`
@@ -186,7 +188,7 @@ export async function resolveUser(env: Env, request: Request): Promise<SessionUs
   const hash = await sha256(token)
   const row = await env.DB.prepare(
     `SELECT s.expires_at AS session_expires, u.id, u.org_id, u.email, u.name, u.role, u.title,
-            u.avatar_hue, u.theme, u.locale, u.timezone, o.name AS org_name, o.currency,
+            u.avatar_hue, u.avatar_url, u.avatar_url AS photo_url, u.theme, u.locale, u.timezone, o.name AS org_name, o.currency,
             o.timezone AS org_timezone
      FROM sessions s
      JOIN users u ON u.id = s.user_id

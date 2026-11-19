@@ -683,7 +683,35 @@ export function AddLeadDrawer({
     owner_id: record?.owner_id ?? meta?.currentUser.id ?? '',
     tags: record?.tags ?? 'inbound',
     description: record?.description ?? '',
+    photo_url: record?.photo_url ?? record?.avatar_url ?? '',
+    avatar_url: record?.avatar_url ?? record?.photo_url ?? '',
   })
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        lead_type: record?.lead_type ?? 'person',
+        first_name: record?.first_name ?? '',
+        last_name: record?.last_name ?? '',
+        email: record?.email ?? '',
+        phone: record?.phone ?? '',
+        company_name: record?.company_name ?? '',
+        job_title: record?.job_title ?? '',
+        source: record?.source ?? 'Website form',
+        industry: record?.industry ?? 'Software',
+        value: record?.value ?? 5000,
+        currency: record?.currency ?? 'USD',
+        birthday: record?.birthday ?? '',
+        status: record?.status ?? 'new',
+        priority: record?.priority ?? 'medium',
+        owner_id: record?.owner_id ?? meta?.currentUser.id ?? '',
+        tags: record?.tags ?? 'inbound',
+        description: record?.description ?? '',
+        photo_url: record?.photo_url ?? record?.avatar_url ?? '',
+        avatar_url: record?.avatar_url ?? record?.photo_url ?? '',
+      })
+    }
+  }, [record, open, meta?.currentUser.id])
 
   const save = async () => {
     if (!String(form.first_name).trim()) {
@@ -726,6 +754,48 @@ export function AddLeadDrawer({
       }
     >
       <div className="space-y-4 text-[13px]">
+        {/* Profile photo upload matching Screenshot 3 */}
+        <div className="flex items-center justify-between p-3 rounded-xl border border-line bg-surface-2/40">
+          <div className="flex items-center gap-3">
+            {form.photo_url || form.avatar_url ? (
+              <img
+                src={form.photo_url || form.avatar_url}
+                alt="Lead avatar"
+                className="size-11 rounded-xl object-cover border border-line shadow-2xs"
+              />
+            ) : (
+              <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 font-bold text-sm">
+                {form.first_name ? form.first_name.slice(0, 2).toUpperCase() : 'LE'}
+              </div>
+            )}
+            <div>
+              <div className="text-[12px] font-semibold text-ink">Profile photo</div>
+              <div className="text-[11px] text-muted">JPG, PNG, GIF or WebP · max 2 MB</div>
+            </div>
+          </div>
+          <label className="cursor-pointer rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-orange-700 transition">
+            <Upload size={12} className="inline mr-1.5" />
+            <span>Upload photo</span>
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  const reader = new FileReader()
+                  reader.onload = (ev) => {
+                    const url = ev.target?.result as string
+                    setForm((prev: any) => ({ ...prev, photo_url: url, avatar_url: url }))
+                    toast('Profile photo updated.', 'good')
+                  }
+                  reader.readAsDataURL(file)
+                }
+              }}
+            />
+          </label>
+        </div>
+
         {/* Lead Type Radio (Page 8 Bottom) */}
         <div className="rounded-xl border border-line bg-surface p-4">
           <label className="block text-[11px] font-bold uppercase tracking-wider text-faint mb-2">Lead Type</label>
@@ -1113,9 +1183,17 @@ export function LeadDetailPage({ id }: { id: string }) {
           <div className="space-y-4">
             <Card className="p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent text-lg font-bold">
-                  {initials(`${lead.first_name ?? ''} ${lead.last_name ?? ''}`)}
-                </span>
+                {lead.photo_url || lead.avatar_url ? (
+                  <img
+                    src={lead.photo_url || lead.avatar_url}
+                    alt=""
+                    className="size-12 shrink-0 rounded-xl object-cover border border-line shadow-2xs"
+                  />
+                ) : (
+                  <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent text-lg font-bold">
+                    {initials(`${lead.first_name ?? ''} ${lead.last_name ?? ''}`)}
+                  </span>
+                )}
                 <div className="min-w-0">
                   <div className="font-bold text-[15px] truncate">
                     {lead.first_name} {lead.last_name}
@@ -1829,6 +1907,8 @@ export function AddContactDrawer({
     email_opt_out: record?.email_opt_out ? 1 : 0,
     tags: record?.tags ?? '',
     description: record?.description ?? '',
+    photo_url: record?.photo_url ?? record?.avatar_url ?? '',
+    avatar_url: record?.avatar_url ?? record?.photo_url ?? '',
   })
 
   useEffect(() => {
@@ -1852,6 +1932,8 @@ export function AddContactDrawer({
         email_opt_out: record?.email_opt_out ? 1 : 0,
         tags: record?.tags ?? '',
         description: record?.description ?? '',
+        photo_url: record?.photo_url ?? record?.avatar_url ?? '',
+        avatar_url: record?.avatar_url ?? record?.photo_url ?? '',
       })
       setSection('basic')
     }
@@ -1911,9 +1993,17 @@ export function AddContactDrawer({
             {/* Profile photo upload matching Screenshot 5 */}
             <div className="flex items-center justify-between p-3 rounded-xl border border-line bg-surface-2/40">
               <div className="flex items-center gap-3">
-                <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 font-bold text-sm">
-                  {form.first_name ? form.first_name.slice(0, 2).toUpperCase() : 'CO'}
-                </div>
+                {form.photo_url || form.avatar_url ? (
+                  <img
+                    src={form.photo_url || form.avatar_url}
+                    alt="Profile preview"
+                    className="size-11 rounded-xl object-cover border border-line shadow-2xs"
+                  />
+                ) : (
+                  <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 font-bold text-sm">
+                    {form.first_name ? form.first_name.slice(0, 2).toUpperCase() : 'CO'}
+                  </div>
+                )}
                 <div>
                   <div className="text-[12px] font-semibold text-ink">Profile photo</div>
                   <div className="text-[11px] text-muted">JPG, PNG, GIF or WebP · max 2 MB</div>
@@ -1922,7 +2012,23 @@ export function AddContactDrawer({
               <label className="cursor-pointer rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-orange-700 transition">
                 <Upload size={12} className="inline mr-1.5" />
                 <span>Upload photo</span>
-                <input type="file" className="hidden" accept="image/*" onChange={() => toast('Photo uploaded.', 'good')} />
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const reader = new FileReader()
+                      reader.onload = (ev) => {
+                        const url = ev.target?.result as string
+                        setForm((prev: any) => ({ ...prev, photo_url: url, avatar_url: url }))
+                        toast('Profile photo updated.', 'good')
+                      }
+                      reader.readAsDataURL(file)
+                    }
+                  }}
+                />
               </label>
             </div>
 
@@ -2966,9 +3072,17 @@ export function ContactDetailPage({ id }: { id: string }) {
           <div className="space-y-4">
             {/* Profile Avatar Card */}
             <Card className="p-5 text-center bg-surface border-line shadow-xs">
-              <div className="mx-auto mb-3 grid size-16 place-items-center rounded-full bg-amber-100 text-amber-700 text-xl font-bold">
-                {initials(fullName) || 'PG'}
-              </div>
+              {contact.photo_url || contact.avatar_url ? (
+                <img
+                  src={contact.photo_url || contact.avatar_url}
+                  alt=""
+                  className="mx-auto mb-3 size-16 rounded-full object-cover border border-line shadow-xs"
+                />
+              ) : (
+                <div className="mx-auto mb-3 grid size-16 place-items-center rounded-full bg-amber-100 text-amber-700 text-xl font-bold">
+                  {initials(fullName) || 'PG'}
+                </div>
+              )}
               <h2 className="text-[17px] font-bold text-ink">{fullName}</h2>
 
               <div className="mt-1 flex items-center justify-center gap-2">

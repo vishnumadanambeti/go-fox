@@ -812,20 +812,28 @@ export function ResourcePage({
                     <td key={key} className={index === 0 ? 'font-medium' : ''}>
                       {index === 0 && AVATAR_ENTITIES.has(entity) ? (
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <span
-                            className={cx(
-                              'grid size-7 shrink-0 place-items-center rounded-full text-[10.5px] font-bold uppercase shadow-2xs',
-                              [
-                                'bg-blue-500/15 text-blue-600 dark:bg-blue-500/25 dark:text-blue-300',
-                                'bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-300',
-                                'bg-purple-500/15 text-purple-600 dark:bg-purple-500/25 dark:text-purple-300',
-                                'bg-amber-500/15 text-amber-600 dark:bg-amber-500/25 dark:text-amber-300',
-                                'bg-rose-500/15 text-rose-600 dark:bg-rose-500/25 dark:text-rose-300',
-                              ][Math.abs(row.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 5]
-                            )}
-                          >
-                            {initials(String(row[key] ?? '')) || '–'}
-                          </span>
+                          {row.photo_url || row.avatar_url || row.image_url ? (
+                            <img
+                              src={String(row.photo_url || row.avatar_url || row.image_url)}
+                              alt=""
+                              className="size-7 shrink-0 rounded-full object-cover border border-line shadow-2xs"
+                            />
+                          ) : (
+                            <span
+                              className={cx(
+                                'grid size-7 shrink-0 place-items-center rounded-full text-[10.5px] font-bold uppercase shadow-2xs',
+                                [
+                                  'bg-blue-500/15 text-blue-600 dark:bg-blue-500/25 dark:text-blue-300',
+                                  'bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-300',
+                                  'bg-purple-500/15 text-purple-600 dark:bg-purple-500/25 dark:text-purple-300',
+                                  'bg-amber-500/15 text-amber-600 dark:bg-amber-500/25 dark:text-amber-300',
+                                  'bg-rose-500/15 text-rose-600 dark:bg-rose-500/25 dark:text-rose-300',
+                                ][Math.abs(row.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 5]
+                              )}
+                            >
+                              {initials(String(row[key] ?? '')) || '–'}
+                            </span>
+                          )}
                           <div className="min-w-0">
                             <FieldValue entity={entity} field={key} value={row[key]} maxChars={40} />
                             {row.designation || row.company_name || row.domain ? (
@@ -913,9 +921,17 @@ export function ResourcePage({
               <Card key={row.id} className="p-4 hover:border-accent/40 transition cursor-pointer" onClick={() => openRow(row)}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-[12px] font-bold text-accent">
-                      {initials(String(row.name || row.first_name || '')) || '–'}
-                    </span>
+                    {row.photo_url || row.avatar_url || row.image_url ? (
+                      <img
+                        src={String(row.photo_url || row.avatar_url || row.image_url)}
+                        alt=""
+                        className="size-9 shrink-0 rounded-xl object-cover border border-line shadow-2xs"
+                      />
+                    ) : (
+                      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-[12px] font-bold text-accent">
+                        {initials(String(row.name || row.first_name || '')) || '–'}
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <div className="font-semibold text-[13.5px] truncate">
                         {String(row.name || `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || 'Untitled')}
@@ -956,10 +972,23 @@ export function ResourcePage({
                   <div className="space-y-2 flex-1 overflow-y-auto">
                     {statusRows.map((r) => (
                       <Card key={r.id} className="p-3 hover:border-accent/40 cursor-pointer" onClick={() => openRow(r)}>
-                        <div className="font-medium text-[13px]">
-                          {String(r.name || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim())}
+                        <div className="flex items-center gap-2">
+                          {r.photo_url || r.avatar_url || r.image_url ? (
+                            <img
+                              src={String(r.photo_url || r.avatar_url || r.image_url)}
+                              alt=""
+                              className="size-6 shrink-0 rounded-full object-cover border border-line shadow-2xs"
+                            />
+                          ) : (
+                            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent-soft text-[10px] font-bold text-accent">
+                              {initials(String(r.name || r.first_name || '')) || '–'}
+                            </span>
+                          )}
+                          <div className="font-medium text-[13px] truncate">
+                            {String(r.name || `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim())}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-muted truncate mt-0.5">{String(r.domain || r.email || r.company_name || '—')}</div>
+                        <div className="text-[11px] text-muted truncate mt-1">{String(r.domain || r.email || r.company_name || '—')}</div>
                         {r.value ? <div className="mt-2 text-[12px] font-semibold text-accent">{money(r.value)}</div> : null}
                       </Card>
                     ))}

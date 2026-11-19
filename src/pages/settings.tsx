@@ -240,7 +240,17 @@ export function ProfileSettingsPage() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (me) setForm({ name: me.name || 'vishnu m', title: me.title ?? '', phone: '', timezone: me.timezone ?? 'Asia/Kolkata', locale: me.locale || 'en' })
+    if (me) {
+      setForm({
+        name: me.name || 'vishnu m',
+        title: me.title ?? '',
+        phone: '',
+        timezone: me.timezone ?? 'Asia/Kolkata',
+        locale: me.locale || 'en',
+        avatar_url: me.avatar_url ?? me.photo_url ?? '',
+        photo_url: me.photo_url ?? me.avatar_url ?? '',
+      })
+    }
   }, [me])
 
   if (!me) return null
@@ -289,19 +299,40 @@ export function ProfileSettingsPage() {
           <div className="mb-5">
             <label className="block text-[12px] font-semibold text-muted mb-2">Profile Photo</label>
             <div className="flex items-center gap-4">
-              <div className="size-14 rounded-full bg-[#FF5900] text-white flex items-center justify-center font-bold text-xl shadow-xs">
-                {initials(form.name || me.name) || 'V'}
-              </div>
+              {form.avatar_url || form.photo_url || me.avatar_url || me.photo_url ? (
+                <img
+                  src={form.avatar_url || form.photo_url || me.avatar_url || me.photo_url}
+                  alt="Profile avatar"
+                  className="size-14 rounded-full object-cover border border-line shadow-xs"
+                />
+              ) : (
+                <div className="size-14 rounded-full bg-[#FF5900] text-white flex items-center justify-center font-bold text-xl shadow-xs">
+                  {initials(form.name || me.name) || 'V'}
+                </div>
+              )}
               <div>
-                <button
-                  type="button"
-                  onClick={() => toast('Avatar upload dialog ready', 'good')}
-                  className="gx-btn gx-btn-sm bg-[#FF5900] hover:bg-[#E04F00] text-white font-semibold px-4 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 text-[12px]"
-                >
+                <label className="cursor-pointer gx-btn gx-btn-sm bg-[#FF5900] hover:bg-[#E04F00] text-white font-semibold px-4 py-1.5 rounded-lg shadow-sm inline-flex items-center gap-1.5 text-[12px] transition">
                   <Upload size={13} /> Upload avatar
-                </button>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const reader = new FileReader()
+                        reader.onload = (ev) => {
+                          const url = ev.target?.result as string
+                          setForm((prev: any) => ({ ...prev, avatar_url: url, photo_url: url }))
+                          toast('Avatar image loaded. Click "Save changes" to apply.', 'good')
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                  />
+                </label>
                 <p className="text-[11px] text-muted mt-1.5">
-                  Only JPG, PNG, GIF and WEBP files are supported.
+                  Only JPG, PNG, GIF and WEBP files are supported (max 2 MB).
                 </p>
               </div>
             </div>
@@ -1646,9 +1677,17 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
       {/* Top Profile Banner Card - Matching Screenshot 6 & 7 */}
       <div className="border-b border-line bg-surface px-5 pt-4 pb-0 shadow-xs">
         <div className="flex items-center gap-3.5 mb-4">
-          <div className="size-11 rounded-full bg-[#FF5900] text-white flex items-center justify-center font-bold text-base shadow-xs">
-            {userInitial}
-          </div>
+          {me?.avatar_url || me?.photo_url ? (
+            <img
+              src={me.avatar_url || me.photo_url}
+              alt=""
+              className="size-11 rounded-full object-cover border border-line shadow-xs shrink-0"
+            />
+          ) : (
+            <div className="size-11 rounded-full bg-[#FF5900] text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+              {userInitial}
+            </div>
+          )}
           <div>
             <div className="text-[15px] font-bold text-ink">{userName}</div>
             <div className="text-[12px] text-muted flex items-center gap-1.5 mt-0.5">

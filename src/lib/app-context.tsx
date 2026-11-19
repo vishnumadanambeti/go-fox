@@ -30,6 +30,8 @@ export type Me = {
   role: 'owner' | 'admin' | 'manager' | 'sales' | 'marketer' | 'support'
   title: string | null
   avatar_hue: number
+  avatar_url?: string | null
+  photo_url?: string | null
   theme: 'light' | 'dark'
   locale: string
   timezone: string | null

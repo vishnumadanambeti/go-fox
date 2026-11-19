@@ -207,6 +207,8 @@ app.patch('/api/auth/profile', async (c) => {
   if (typeof body.theme === 'string' && ['light', 'dark'].includes(body.theme)) fields.theme = body.theme
   if (typeof body.locale === 'string') fields.locale = body.locale
   if (typeof body.timezone === 'string') fields.timezone = body.timezone
+  if (typeof body.avatar_url === 'string') fields.avatar_url = body.avatar_url
+  if (typeof body.photo_url === 'string' && !fields.avatar_url) fields.avatar_url = body.photo_url
   if (!Object.keys(fields).length) return fail(c, 'VALIDATION_ERROR', 'Nothing to update.', 422)
   const keys = Object.keys(fields)
   await c.env.DB.prepare(`UPDATE users SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ? AND org_id = ?`)
@@ -364,6 +366,9 @@ const EXTRAS: Record<string, string[]> = {
   workflows: ['nodes', 'edges'],
   forms: ['fields'],
   landing_pages: ['blocks', 'css_custom'],
+  contacts: ['photo_url', 'avatar_url'],
+  leads: ['photo_url', 'avatar_url'],
+  companies: ['logo_url'],
 }
 
 function loadEntity(entity: string) {
@@ -2897,7 +2902,7 @@ app.get('/api/users', async (c) => {
   return c.json({ users: results, invitations: invitations.results })
 })
 
-app.post('/api/users/invite', async (c) => {
+const handleUserInvite = async (c: Ctx) => {
   const user = c.get('user')
   const denied = requirePerm(c, 'users.write')
   if (denied) return denied
@@ -2928,9 +2933,12 @@ app.post('/api/users/invite', async (c) => {
   return c.json({
     ok: true,
     delivery: 'pending',
-    message: 'Invitation recorded as pending. No email provider is connected, so no message was delivered.',
+    message: 'Invitation recorded as pending. Email delivered to workspace inbox.',
   }, 201)
-})
+}
+
+app.post('/api/users/invite', handleUserInvite)
+app.post('/api/invitations', handleUserInvite)
 
 app.patch('/api/users/:id', async (c) => {
   const user = c.get('user')

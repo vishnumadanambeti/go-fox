@@ -398,7 +398,7 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
       <div className="shrink-0 border-t border-line p-2.5">
         {!collapsed ? (
           <div className="flex items-center gap-2 rounded-lg bg-surface-2 p-2 border border-line">
-            <Avatar name={me?.name} hue={me?.avatar_hue} size={30} />
+            <Avatar name={me?.name} hue={me?.avatar_hue} size={30} src={me?.avatar_url || me?.photo_url} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-[12px] font-semibold text-ink">{me?.name}</div>
               <div className="truncate text-[10.5px] capitalize text-muted">{me?.role} · {me?.org_name}</div>
@@ -409,7 +409,7 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
           </div>
         ) : (
           <Link to="/settings/profile" className="flex justify-center py-1" aria-label="Profile settings">
-            <Avatar name={me?.name} hue={me?.avatar_hue} size={28} />
+            <Avatar name={me?.name} hue={me?.avatar_hue} size={28} src={me?.avatar_url || me?.photo_url} />
           </Link>
         )}
       </div>
@@ -686,11 +686,15 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
             align="right"
             trigger={({ toggle }) => (
               <button
-                className="ml-1 flex size-8 items-center justify-center rounded-full bg-[#ff7417] text-white font-semibold text-[13px] shadow-sm hover:opacity-90 transition-opacity"
+                className="ml-1 flex size-8 items-center justify-center rounded-full bg-[#ff7417] text-white font-semibold text-[13px] shadow-sm hover:opacity-90 transition-opacity overflow-hidden"
                 onClick={toggle}
                 aria-label="Profile menu"
               >
-                {(me?.name ?? 'V').charAt(0).toUpperCase()}
+                {me?.avatar_url || me?.photo_url ? (
+                  <img src={me.avatar_url || me.photo_url} alt="" className="size-full object-cover" />
+                ) : (
+                  (me?.name ?? 'V').charAt(0).toUpperCase()
+                )}
               </button>
             )}
           >
@@ -698,8 +702,12 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
               <div className="w-56 py-1">
                 <div className="border-b border-line px-3 py-2.5">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex size-9 items-center justify-center rounded-full bg-[#ff7417] text-white font-bold text-[14px]">
-                      {(me?.name ?? 'V').charAt(0).toUpperCase()}
+                    <div className="flex size-9 items-center justify-center rounded-full bg-[#ff7417] text-white font-bold text-[14px] overflow-hidden shrink-0">
+                      {me?.avatar_url || me?.photo_url ? (
+                        <img src={me.avatar_url || me.photo_url} alt="" className="size-full object-cover" />
+                      ) : (
+                        (me?.name ?? 'V').charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="truncate text-[13px] font-semibold text-ink">{me?.name}</div>
@@ -1626,7 +1634,7 @@ export function RoleBadge({ role }: { role: string }) {
 }
 
 export function MeAvatar({ user }: { user: Me }) {
-  return <Avatar name={user.name} hue={user.avatar_hue} size={32} />
+  return <Avatar name={user.name} hue={user.avatar_hue} size={32} src={user.avatar_url || user.photo_url} />
 }
 
 export function InitialsOnly({ name }: { name: string }) {

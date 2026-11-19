@@ -1873,6 +1873,13 @@ export function CampaignDetailPage({ id }: { id: string }) {
     recipients?: Row[]
   }>(`/api/resources/campaigns/${id}`)
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void reload()
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [reload])
+
   if (loading) return <Spinner label="Loading campaign analytics…" />
   if (error || !data?.record) return <ErrorState message={error?.message ?? 'Campaign not found.'} onRetry={reload} />
 
@@ -1917,16 +1924,15 @@ export function CampaignDetailPage({ id }: { id: string }) {
     { label: 'SPAM COMPLAINTS', value: spamComplaints, color: 'text-rose-600 bg-rose-500/10 border-rose-500/20' },
   ]
 
-  // Filtered recipient list for the table
-  const displayedRecipients = recipients.length > 0 ? recipients : [
-    {
-      id: 'default-1',
-      contact_name: 'kaveri',
-      email: 'vishnu.madanambeti@ftprotech.com',
-      status: 'delivered',
-      delivered_at: c.sent_at || c.updated_at || new Date().toISOString(),
-    },
-  ]
+  // Real recipients from database; if none recorded, fallback to empty list
+  const filteredRecipients = recipients.filter((r) => {
+    if (!searchRecipients.trim()) return true
+    const term = searchRecipients.toLowerCase()
+    return (
+      String(r.contact_name ?? '').toLowerCase().includes(term) ||
+      String(r.email ?? '').toLowerCase().includes(term)
+    )
+  })
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface font-sans text-ink">
@@ -2098,39 +2104,75 @@ export function CampaignDetailPage({ id }: { id: string }) {
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Delivered at (Asia/Calcutta)</th>
+                <th className="px-4 py-3">Delivered at</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {displayedRecipients.map((r, i) => (
-                <tr key={r.id || i} className="hover:bg-surface-2/40 transition-colors">
-                  <td className="px-4 py-3.5">
-                    <input type="checkbox" className="rounded border-line" />
-                  </td>
-                  <td className="px-4 py-3.5 font-medium text-ink">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex size-7 items-center justify-center rounded-full bg-orange-500/15 text-[11px] font-bold text-orange-600 dark:text-orange-400 uppercase">
-                        {String(r.contact_name || 'K').slice(0, 2)}
-                      </span>
-                      <span>{r.contact_name || 'kaveri'}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 text-muted">{r.email || 'vishnu.madanambeti@ftprotech.com'}</td>
-                  <td className="px-4 py-3.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      <span className="size-1.5 rounded-full bg-emerald-500" />
-                      Delivered
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 text-muted">
-                    {formatDateTime(r.delivered_at)}
+              {filteredRecipients.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-[13px] text-muted">
+                    No recipients found for this campaign.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredRecipients.map((r, i) => (
+                  <tr key={r.id || i} className="hover:bg-surface-2/40 transition-colors">
+                    <td className="px-4 py-3.5">
+                      <input type="checkbox" className="rounded border-line" />
+                    </td>
+                    <td className="px-4 py-3.5 font-medium text-ink">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex size-7 items-center justify-center rounded-full bg-orange-500/15 text-[11px] font-bold text-orange-600 dark:text-orange-400 uppercase">
+                          {String(r.contact_name || r.email || 'C').slice(0, 2)}
+                        </span>
+                        <span>{r.contact_name || 'Contact'}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-muted">{r.email}</td>
+                    <td className="px-4 py-3.5">
+                      {r.status === 'opened' || r.opened_at ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                          <span className="size-1.5 rounded-full bg-rose-500" />
+                          Opened
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                          <span className="size-1.5 rounded-full bg-emerald-500" />
+                          Delivered
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 text-muted">
+                      {formatDateTime(r.opened_at || r.delivered_at || r.created_at)}
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      {r.status !== 'opened' && !r.opened_at ? (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/public/campaigns/open/${id}/${r.id}`)
+                              toast('Recorded open event for ' + r.email, 'good')
+                              await reload()
+                            } catch {
+                              toast('Failed to record open.', 'bad')
+                            }
+                          }}
+                          className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-2 py-1 rounded-md transition"
+                        >
+                          Trigger Open
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-medium text-emerald-600">Opened ✓</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
           <div className="border-t border-line bg-surface-2/40 px-4 py-2.5 text-[11.5px] text-muted">
-            Showing {displayedRecipients.length} record · You've reached the end
+            Showing {filteredRecipients.length} record{filteredRecipients.length === 1 ? '' : 's'}
           </div>
         </div>
       </div>

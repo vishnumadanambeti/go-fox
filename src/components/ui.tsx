@@ -92,7 +92,17 @@ export function Badge({ children, tone = 'default', className }: { children: Rea
 
 /* ------------------------------------------------------------------ avatars */
 const HUES = [22, 205, 325, 150, 265, 45]
-export function Avatar({ name, hue, size = 28 }: { name: unknown; hue?: number; size?: number }) {
+export function Avatar({ name, hue, size = 28, src }: { name: unknown; hue?: number; size?: number; src?: string | null }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={String(name ?? '')}
+        className="inline-flex shrink-0 rounded-full object-cover border border-line shadow-2xs"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
   const color = hue ?? HUES[String(name ?? '').length % HUES.length]
   return (
     <span

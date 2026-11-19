@@ -863,25 +863,38 @@ export async function sendCampaign(
     .first<{ status: string }>()
 
   let sentSuccess = 0
+  const publicBase = String((env as unknown as Record<string, unknown>).PUBLIC_URL ?? (env as unknown as Record<string, unknown>).APP_BASE_URL ?? (env as unknown as Record<string, unknown>).APP_ORIGIN ?? '').trim() || 'http://localhost:3001'
+
   for (const m of eligible) {
     const recipientRowId = uid()
-    const name = [m.first_name, m.last_name].filter(Boolean).join(' ') || (m.email?.split('@')[0] ?? 'Recipient')
+    const firstName = String(m.first_name || m.email?.split('@')[0] || 'there')
+    const lastName = String(m.last_name || '')
+    const fullName = [m.first_name, m.last_name].filter(Boolean).join(' ') || firstName
 
-    // Personalize content
+    // Personalize both Subject and Content with comprehensive variable support ({{firstName}}, {{first_name}}, {{name}}, {{email}})
+    let subject = String(campaign.subject || campaign.name || 'Update from GoFox')
+    subject = subject
+      .replace(/\{\{\s*first_?name\s*\}\}/gi, firstName)
+      .replace(/\{\{\s*last_?name\s*\}\}/gi, lastName)
+      .replace(/\{\{\s*(full_?)?name\s*\}\}/gi, fullName)
+      .replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
+
     let content = String(campaign.body_html || campaign.content || campaign.subject || '')
-    content = content.replace(/\{\{\s*first_name\s*\}\}/gi, m.first_name || 'there')
-    content = content.replace(/\{\{\s*name\s*\}\}/gi, name)
-    content = content.replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
+    content = content
+      .replace(/\{\{\s*first_?name\s*\}\}/gi, firstName)
+      .replace(/\{\{\s*last_?name\s*\}\}/gi, lastName)
+      .replace(/\{\{\s*(full_?)?name\s*\}\}/gi, fullName)
+      .replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
 
-    // Inject transparent open tracking pixel
-    const openPixel = `<img src="http://localhost:3001/api/public/campaigns/open/${campaignId}/${recipientRowId}" width="1" height="1" style="display:none" alt="" />`
+    // Inject transparent open tracking pixel with public URL resolution
+    const openPixel = `<img src="${publicBase}/api/public/campaigns/open/${campaignId}/${recipientRowId}" width="1" height="1" style="display:none;width:1px;height:1px;opacity:0" alt="" />`
     const fullHtml = `<div>${content}</div>${openPixel}`
 
     if (channel === 'email' && gmailConnected) {
       try {
         await sendGmail(env, orgId, {
           to: m.email!,
-          subject: String(campaign.subject || campaign.name || 'Update from GoFox'),
+          subject,
           html: fullHtml,
         })
         sentSuccess++
@@ -918,16 +931,16 @@ export async function sendCampaign(
     'campaign.sent',
     'campaign',
     campaignId,
-    `Campaign "${campaign.name}" sent to ${eligible.length} recipients via sandbox adapter (${suppressed} suppressed)`,
+    `Campaign "${campaign.name}" sent to ${eligible.length} recipients via ${providerName} (${suppressed} suppressed)`,
   )
-  await logActivity(env, orgId, actorId, 'email.sent', 'campaign', campaignId, `${delivered} sandbox deliveries recorded`)
+  await logActivity(env, orgId, actorId, 'email.sent', 'campaign', campaignId, `${sentSuccess} deliveries recorded via ${providerName}`)
   await notify(
     env,
     orgId,
     String(campaign.owner_id ?? actorId ?? ''),
     'campaign_sent',
     'Campaign sent',
-    `${campaign.name}: ${delivered} sandbox deliveries, ${opened} opens, ${clicked} clicks.`,
+    `${campaign.name}: ${sentSuccess} messages dispatched via ${providerName}.`,
     'campaign',
     campaignId,
   )
