@@ -1406,7 +1406,7 @@ export function ContactsPage() {
             </Button>
           </div>
         }
-        onRowClick={(row) => navigate(`/contacts/${row.id}`)}
+        onRowClick={(row) => setSelectedId(row.id)}
         renderDrawer={({ open, record, onClose, onSaved }) => (
           <AddContactDrawer open={open} record={record} onClose={onClose} onSaved={onSaved} />
         )}
@@ -2124,7 +2124,7 @@ export function AddContactDrawer({
 }
 
 export function ContactDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
-  const { meta, schema } = useApp()
+  const { meta, schema, toast } = useApp()
   const navigate = useNavigate()
   const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(false)
