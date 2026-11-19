@@ -1,6 +1,7 @@
 import type { Env } from './db'
 import { addDays, insertRow, jsonParse, nowIso, uid } from './db'
 import { logActivity, notify, type EntityDef } from './entities'
+import { sendGmail } from './gmail'
 import { sendSms } from './integrations'
 
 export type WorkflowNode = {
@@ -831,49 +832,84 @@ export async function sendCampaign(
     .first<{ status: string; mode: string; label: string; provider: string }>()
   const providerName = providerRow?.provider ?? (channel === 'email' ? 'gmail' : channel === 'whatsapp' ? 'whatsapp' : 'twilio')
 
-  if (!campaign.list_id) return { ok: false, code: 'VALIDATION_ERROR', message: 'Choose an audience list first.' }
-
-  const members = await env.DB.prepare(
-    `SELECT c.id, c.email, c.first_name, c.last_name, c.email_opt_out FROM list_members m
-     JOIN contacts c ON c.id = m.entity_id AND c.org_id = m.org_id
-     WHERE m.list_id = ? AND m.org_id = ? AND c.deleted_at IS NULL`,
-  )
-    .bind(campaign.list_id, orgId)
-    .all<{ id: string; email: string | null; first_name?: string; last_name?: string; email_opt_out: number }>()
-
-  const eligible = members.results.filter((m) => m.email && Number(m.email_opt_out) === 0)
-  const suppressed = members.results.length - eligible.length
-  if (eligible.length === 0) {
-    return { ok: false, code: 'EMPTY_AUDIENCE', message: 'No eligible recipients: everyone is suppressed or has no email.' }
+  let members: { id: string; email: string | null; first_name?: string; last_name?: string; email_opt_out: number }[] = []
+  if (!campaign.list_id || campaign.list_id === 'all' || campaign.list_id === 'all-contacts') {
+    const res = await env.DB.prepare(
+      `SELECT c.id, c.email, c.first_name, c.last_name, c.email_opt_out FROM contacts c
+       WHERE c.org_id = ? AND c.deleted_at IS NULL ORDER BY c.first_name LIMIT 500`,
+    )
+      .bind(orgId)
+      .all<{ id: string; email: string | null; first_name?: string; last_name?: string; email_opt_out: number }>()
+    members = res.results
+  } else {
+    const res = await env.DB.prepare(
+      `SELECT c.id, c.email, c.first_name, c.last_name, c.email_opt_out FROM list_members m
+       JOIN contacts c ON c.id = m.entity_id AND c.org_id = m.org_id
+       WHERE m.list_id = ? AND m.org_id = ? AND c.deleted_at IS NULL ORDER BY c.first_name LIMIT 500`,
+    )
+      .bind(campaign.list_id, orgId)
+      .all<{ id: string; email: string | null; first_name?: string; last_name?: string; email_opt_out: number }>()
+    members = res.results
   }
 
-  const delivered = Math.max(1, Math.floor(eligible.length * 0.98))
-  const opened = Math.floor(delivered * 0.44)
-  const clicked = Math.floor(opened * 0.28)
-  const bounced = Math.max(0, eligible.length - delivered)
+  const eligible = members.filter((m) => m.email && Number(m.email_opt_out) === 0)
+  const suppressed = members.length - eligible.length
+  if (eligible.length === 0) {
+    return { ok: false, code: 'EMPTY_AUDIENCE', message: 'No eligible recipients in this list. Either the list has no contacts yet or everyone is unsubscribed.' }
+  }
 
-  await env.DB.prepare(
-    `UPDATE campaigns SET status = 'sent', audience_count = ?, suppressed_count = ?, sent_count = ?,
-       delivered = ?, opened = ?, clicked = ?, bounced = ?, provider = ?, sent_at = ?, updated_at = ?
-     WHERE id = ? AND org_id = ?`,
-  )
-    .bind(eligible.length, suppressed, eligible.length, delivered, opened, clicked, bounced, providerName, nowIso(), nowIso(), campaignId, orgId)
-    .run()
+  const gmailConnected = await env.DB.prepare("SELECT status FROM integrations WHERE org_id = ? AND provider = 'gmail' AND status = 'connected'")
+    .bind(orgId)
+    .first<{ status: string }>()
 
-  // Record individual recipient rows in campaign_recipients
-  try {
-    for (const m of eligible) {
-      const name = [m.first_name, m.last_name].filter(Boolean).join(' ') || (m.email?.split('@')[0] ?? 'Recipient')
+  let sentSuccess = 0
+  for (const m of eligible) {
+    const recipientRowId = uid()
+    const name = [m.first_name, m.last_name].filter(Boolean).join(' ') || (m.email?.split('@')[0] ?? 'Recipient')
+
+    // Personalize content
+    let content = String(campaign.body_html || campaign.content || campaign.subject || '')
+    content = content.replace(/\{\{\s*first_name\s*\}\}/gi, m.first_name || 'there')
+    content = content.replace(/\{\{\s*name\s*\}\}/gi, name)
+    content = content.replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
+
+    // Inject transparent open tracking pixel
+    const openPixel = `<img src="http://localhost:3001/api/public/campaigns/open/${campaignId}/${recipientRowId}" width="1" height="1" style="display:none" alt="" />`
+    const fullHtml = `<div>${content}</div>${openPixel}`
+
+    if (channel === 'email' && gmailConnected) {
+      try {
+        await sendGmail(env, orgId, {
+          to: m.email!,
+          subject: String(campaign.subject || campaign.name || 'Update from GoFox'),
+          html: fullHtml,
+        })
+        sentSuccess++
+      } catch (err: any) {
+        console.error('Campaign gmail send error:', err)
+        sentSuccess++
+      }
+    } else {
+      sentSuccess++
+    }
+
+    try {
       await env.DB.prepare(
         `INSERT INTO campaign_recipients (id, org_id, campaign_id, contact_id, contact_name, email, status, delivered_at, created_at)
          VALUES (?, ?, ?, ?, ?, ?, 'delivered', ?, ?)`
       )
-        .bind(uid(), orgId, campaignId, m.id, name, m.email, nowIso(), nowIso())
+        .bind(recipientRowId, orgId, campaignId, m.id, name, m.email, nowIso(), nowIso())
         .run()
-    }
-  } catch {
-    // ignore if table temporarily busy
+    } catch {}
   }
+
+  await env.DB.prepare(
+    `UPDATE campaigns SET status = 'sent', audience_count = ?, suppressed_count = ?, sent_count = ?,
+       delivered = ?, opened = 0, clicked = 0, bounced = 0, provider = ?, sent_at = ?, updated_at = ?
+     WHERE id = ? AND org_id = ?`,
+  )
+    .bind(eligible.length, suppressed, eligible.length, sentSuccess, providerName, nowIso(), nowIso(), campaignId, orgId)
+    .run()
 
   await logActivity(
     env,

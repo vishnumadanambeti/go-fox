@@ -780,10 +780,51 @@ export function CampaignWizardPage({ campaignId }: { campaignId?: string } = {})
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  // Audience list fetching
+  // Fetch real connected integrations to dynamically populate real mailboxes
+  const integrationsFetch = useFetch<{ integrations: Row[] }>('/api/integrations')
+  const connectedEmailAccounts = useMemo(() => {
+    const list = (integrationsFetch.data?.integrations ?? []).filter((i) => i.status === 'connected')
+    const emails: { email: string; label: string }[] = []
+    const gmail = list.find((i) => i.provider === 'gmail')
+    if (gmail && gmail.account) {
+      emails.push({ email: String(gmail.account), label: `${gmail.account} (Connected via Gmail OAuth)` })
+    }
+    const smtp = list.find((i) => i.provider === 'smtp')
+    if (smtp && smtp.account) {
+      emails.push({ email: String(smtp.account), label: `${smtp.account} (Connected via SMTP)` })
+    }
+    if (me?.email && !emails.some((e) => e.email.toLowerCase() === me.email.toLowerCase())) {
+      emails.push({ email: me.email, label: `${me.email} (Your user account)` })
+    }
+    return emails
+  }, [integrationsFetch.data, me?.email])
+
+  useEffect(() => {
+    if (connectedEmailAccounts.length > 0 && (!form.from_email || form.from_email === 'vishnu.m0827@gmail.com' || form.from_email === 'owner@gofox.dev')) {
+      setForm((prev) => ({
+        ...prev,
+        from_email: connectedEmailAccounts[0].email,
+        from_name: prev.from_name || me?.name || 'Sender',
+      }))
+    }
+  }, [connectedEmailAccounts, me?.name])
+
+  // Audience list fetching from real database
   const lists = meta?.lists ?? []
-  const selectedListObj = lists.find((l) => l.id === form.list_id) || lists[0]
-  const audienceCount = selectedListObj?.contact_count || 1
+  const selectedListObj = useMemo(() => {
+    if (form.list_id === 'all-contacts' || !form.list_id) {
+      return { id: 'all-contacts', name: 'All Workspace Contacts', contact_count: meta?.contacts?.length || 0 }
+    }
+    return lists.find((l) => l.id === form.list_id) || { id: form.list_id, name: 'Contact List', contact_count: 0 }
+  }, [form.list_id, lists, meta?.contacts])
+
+  const audienceCount = useMemo(() => {
+    if (form.list_id === 'all-contacts' || !form.list_id) {
+      return meta?.contacts?.length || 0
+    }
+    const found = lists.find((l) => l.id === form.list_id)
+    return found ? Number(found.contact_count || 0) : (meta?.contacts?.length || 0)
+  }, [form.list_id, lists, meta?.contacts])
 
   // Handle Launch Campaign (Step 5)
   const handleLaunchCampaign = async () => {
@@ -798,7 +839,7 @@ export function CampaignWizardPage({ campaignId }: { campaignId?: string } = {})
         sender: `${form.from_name} <${form.from_email}>`,
         subject: form.subject,
         content: form.content,
-        list_id: form.list_id || lists[0]?.id || '',
+        list_id: form.list_id || (lists.length > 0 ? lists[0].id : 'all-contacts'),
         status: 'draft',
       }
       if (targetId) {
@@ -1032,11 +1073,16 @@ export function CampaignWizardPage({ campaignId }: { campaignId?: string } = {})
                     onChange={(e) => setField('from_email', e.target.value)}
                     className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-[13px] text-ink focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                   >
-                    <option value={me?.email || 'vishnu.m0827@gmail.com'}>
-                      {me?.email || 'vishnu.m0827@gmail.com'}
-                    </option>
-                    <option value="team@gofox.io">team@gofox.io (GoFox Default)</option>
-                    <option value="notifications@gofox.io">notifications@gofox.io</option>
+                    {connectedEmailAccounts.map((opt) => (
+                      <option key={opt.email} value={opt.email}>
+                        {opt.label}
+                      </option>
+                    ))}
+                    {connectedEmailAccounts.length === 0 ? (
+                      <option value={me?.email || 'owner@gofox.dev'}>
+                        {me?.email || 'owner@gofox.dev'}
+                      </option>
+                    ) : null}
                   </select>
                 </div>
               </div>
@@ -1127,15 +1173,21 @@ export function CampaignWizardPage({ campaignId }: { campaignId?: string } = {})
                       className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-[12.5px] text-ink focus:border-orange-500 focus:outline-none"
                     >
                       <option value="">Select contact lists...</option>
+                      <option value="all-contacts">All Workspace Contacts ({meta?.contacts?.length ?? 0} contacts)</option>
                       {lists.map((l) => (
                         <option key={l.id} value={l.id}>
-                          {l.name} ({l.contact_count || 1} contact{Number(l.contact_count) === 1 ? '' : 's'})
+                          {l.name} ({l.contact_count ?? 0} {Number(l.contact_count) === 1 ? 'contact' : 'contacts'})
                         </option>
                       ))}
-                      <option value="smart-list">Smart list (1 contact)</option>
-                      <option value="teen-list">teen (85 contacts)</option>
-                      <option value="new-list">New list (45 contacts)</option>
                     </select>
+                    {lists.length === 0 ? (
+                      <div className="mt-2 rounded-xl border border-dashed border-orange-500/30 bg-orange-500/5 p-3 text-[12px] text-muted leading-relaxed">
+                        No custom lists found. You can target <strong>All Workspace Contacts</strong> ({meta?.contacts?.length ?? 0} contacts) or create segments in{' '}
+                        <a href="/lists" className="font-semibold text-orange-600 hover:underline">
+                          Marketing › Lists
+                        </a>.
+                      </div>
+                    ) : null}
                   </div>
 
                   {/* Inline Add List */}
@@ -1437,7 +1489,7 @@ export function CampaignWizardPage({ campaignId }: { campaignId?: string } = {})
                     <div>
                       <div className="text-[12px] font-semibold text-muted">Recipients</div>
                       <div className="text-[13px] font-medium text-ink">
-                        {selectedListObj?.name || 'Smart list'} ({audienceCount} contact{audienceCount === 1 ? '' : 's'})
+                        {selectedListObj.name} ({audienceCount} contact{audienceCount === 1 ? '' : 's'})
                       </div>
                     </div>
                   </div>

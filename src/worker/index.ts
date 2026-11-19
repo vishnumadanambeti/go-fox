@@ -267,7 +267,7 @@ app.get('/api/meta', async (c) => {
       c.env.DB.prepare(`SELECT id, first_name, last_name, email FROM contacts WHERE org_id = ? AND deleted_at IS NULL ORDER BY first_name LIMIT 500`).bind(org).all(),
       c.env.DB.prepare(`SELECT id, name, pipeline_id, position, probability FROM stages WHERE org_id = ? ORDER BY position`).bind(org).all(),
       c.env.DB.prepare(`SELECT id, name FROM pipelines WHERE org_id = ? ORDER BY name`).bind(org).all(),
-      c.env.DB.prepare(`SELECT id, name, category FROM lists WHERE org_id = ? AND deleted_at IS NULL ORDER BY name`).bind(org).all(),
+      c.env.DB.prepare(`SELECT l.id, l.name, l.category, (SELECT COUNT(*) FROM list_members lm WHERE lm.list_id = l.id AND lm.org_id = l.org_id) AS contact_count FROM lists l WHERE l.org_id = ? AND l.deleted_at IS NULL ORDER BY l.name`).bind(org).all(),
       c.env.DB.prepare(`SELECT id, name FROM email_templates WHERE org_id = ? AND deleted_at IS NULL ORDER BY name`).bind(org).all(),
       c.env.DB.prepare(`SELECT id, name, slug, status FROM forms WHERE org_id = ? AND deleted_at IS NULL ORDER BY name`).bind(org).all(),
       c.env.DB.prepare(`SELECT id, name FROM deals WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 300`).bind(org).all(),
@@ -3356,7 +3356,15 @@ app.post('/api/telephony/dial', async (c) => {
     return fail(c, 'PROVIDER_NOT_CONNECTED', 'Twilio is connected but no caller ID is configured. Add a verified Twilio number in the setup panel.', 409)
   }
   const [sid, token] = connection.access_token.split(':')
-  const twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Connecting your GoFox CRM call.</Say><Pause length="30"/></Response>'
+  const agentPhone = String(body.agent_phone ?? user.phone ?? '').trim()
+  let twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Connecting your GoFox CRM call.</Say><Pause length="30"/></Response>'
+  if (agentPhone && agentPhone.length >= 7) {
+    let cleanAgentPhone = agentPhone.replace(/[^\d+]/g, '')
+    if (!cleanAgentPhone.startsWith('+')) {
+      cleanAgentPhone = cleanAgentPhone.length === 10 ? `+91${cleanAgentPhone}` : `+${cleanAgentPhone}`
+    }
+    twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Connecting your call.</Say><Dial callerId="${from}"><Number>${cleanAgentPhone}</Number></Dial></Response>`
+  }
   const origin = new URL(c.req.url).origin
   const params: Record<string, string> = {
     To: number,
@@ -3390,6 +3398,125 @@ app.post('/api/telephony/dial', async (c) => {
     .run()
   await logActivity(c.env, user.org_id, user.id, 'call.placed', 'call', body.contact_id ?? null, `Call to ${number} queued with recording enabled (Twilio ${data.sid})`)
   return c.json({ ok: true, sid: data.sid, status: data.status ?? 'queued', recording_url: recordingUrl })
+})
+
+app.get('/api/telephony/calls/:sid', async (c) => {
+  const user = c.get('user')
+  const sidParam = c.req.param('sid')
+  const connection = await loadConnection(c.env, user.org_id, 'twilio')
+  if (!connection) return fail(c, 'NOT_CONNECTED', 'Twilio not connected', 400)
+  const [accountSid, token] = connection.access_token.split(':')
+
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Calls/${encodeURIComponent(sidParam)}.json`, {
+    headers: { Authorization: `Basic ${btoa(`${accountSid}:${token}`)}` },
+  })
+  if (!res.ok) {
+    const row = await c.env.DB.prepare('SELECT * FROM calls WHERE notes LIKE ? AND org_id = ?')
+      .bind(`%${sidParam}%`, user.org_id)
+      .first<Record<string, unknown>>()
+    return c.json({ sid: sidParam, status: row?.status ?? 'in-progress', duration: row?.duration ?? 0, recording_url: row?.recording_url })
+  }
+  const twilioCall = await res.json() as { status?: string; duration?: string; from?: string; to?: string }
+  const status = twilioCall.status ?? 'in-progress'
+  const duration = Number(twilioCall.duration || 0)
+
+  let mediaUrl: string | null = null
+  try {
+    const recRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Calls/${encodeURIComponent(sidParam)}/Recordings.json`, {
+      headers: { Authorization: `Basic ${btoa(`${accountSid}:${token}`)}` },
+    })
+    if (recRes.ok) {
+      const recData = await recRes.json() as { recordings?: { sid: string; duration: string }[] }
+      if (recData.recordings && recData.recordings.length > 0) {
+        const firstRec = recData.recordings[0]
+        mediaUrl = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Recordings/${firstRec.sid}.mp3`
+      }
+    }
+  } catch {}
+
+  const mappedStatus = ['completed', 'canceled', 'busy', 'no-answer', 'failed'].includes(status) ? 'completed' : status
+  await c.env.DB.prepare(
+    `UPDATE calls SET status = ?, outcome = ?, duration = ?, recording_url = COALESCE(?, recording_url), updated_at = ?
+     WHERE notes LIKE ? AND org_id = ?`
+  )
+    .bind(mappedStatus, `Twilio state: ${status}`, duration, mediaUrl, nowIso(), `%${sidParam}%`, user.org_id)
+    .run()
+
+  return c.json({
+    sid: sidParam,
+    status,
+    duration,
+    recording_url: mediaUrl,
+    from: twilioCall.from,
+    to: twilioCall.to,
+  })
+})
+
+app.post('/api/telephony/hangup', async (c) => {
+  const user = c.get('user')
+  const body = await readBody<{ sid?: string }>(c)
+  if (!body.sid) return fail(c, 'VALIDATION_ERROR', 'Call SID is required.', 422)
+  const connection = await loadConnection(c.env, user.org_id, 'twilio')
+  if (!connection) return fail(c, 'NOT_CONNECTED', 'Twilio not connected', 400)
+  const [accountSid, token] = connection.access_token.split(':')
+
+  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Calls/${encodeURIComponent(body.sid)}.json`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${btoa(`${accountSid}:${token}`)}`, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ Status: 'completed' }).toString(),
+  })
+  await c.env.DB.prepare(
+    `UPDATE calls SET status = 'completed', outcome = 'Call ended by agent', updated_at = ? WHERE notes LIKE ? AND org_id = ?`
+  )
+    .bind(nowIso(), `%${body.sid}%`, user.org_id)
+    .run()
+  return c.json({ ok: true })
+})
+
+const TRANSPARENT_GIF = new Uint8Array([
+  0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
+  0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x21, 0xf9, 0x04, 0x01, 0x00,
+  0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+  0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b,
+])
+
+app.get('/api/public/campaigns/open/:campaignId/:recipientId', async (c) => {
+  const campaignId = c.req.param('campaignId')
+  const recipientId = c.req.param('recipientId')
+  const now = nowIso()
+  try {
+    const recipient = await c.env.DB.prepare('SELECT id, status, opened_at FROM campaign_recipients WHERE id = ? AND campaign_id = ?')
+      .bind(recipientId, campaignId)
+      .first<{ id: string; status: string; opened_at: string | null }>()
+    if (recipient && !recipient.opened_at) {
+      await c.env.DB.prepare(`UPDATE campaign_recipients SET status = 'opened', opened_at = ? WHERE id = ?`).bind(now, recipientId).run()
+      await c.env.DB.prepare(`UPDATE campaigns SET opened = opened + 1, updated_at = ? WHERE id = ?`).bind(now, campaignId).run()
+    }
+  } catch {}
+  return new Response(TRANSPARENT_GIF, {
+    headers: {
+      'content-type': 'image/gif',
+      'cache-control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+      'pragma': 'no-cache',
+    },
+  })
+})
+
+app.get('/api/public/campaigns/click/:campaignId/:recipientId', async (c) => {
+  const campaignId = c.req.param('campaignId')
+  const recipientId = c.req.param('recipientId')
+  const targetUrl = c.req.query('url') || '/'
+  const now = nowIso()
+  try {
+    const recipient = await c.env.DB.prepare('SELECT id, clicked_at FROM campaign_recipients WHERE id = ? AND campaign_id = ?')
+      .bind(recipientId, campaignId)
+      .first<{ id: string; clicked_at: string | null }>()
+    if (recipient && !recipient.clicked_at) {
+      await c.env.DB.prepare(`UPDATE campaign_recipients SET status = 'clicked', clicked_at = ?, opened_at = COALESCE(opened_at, ?) WHERE id = ?`).bind(now, now, recipientId).run()
+      await c.env.DB.prepare(`UPDATE campaigns SET clicked = clicked + 1, updated_at = ? WHERE id = ?`).bind(now, campaignId).run()
+    }
+  } catch {}
+  return c.redirect(targetUrl, 302)
 })
 
 app.post('/api/inbox/send', async (c) => {

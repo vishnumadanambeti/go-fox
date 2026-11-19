@@ -1303,15 +1303,25 @@ function AIPanel({ open, onClose, onQuickDeal }: { open: boolean; onClose: () =>
 
 /* ------------------------------------------------------------------ dial pad */
 function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { me } = useApp()
   const [number, setNumber] = useState('')
+  const [agentPhone, setAgentPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [called, setCalled] = useState(false)
+  const [callSid, setCallSid] = useState<string | null>(null)
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'in-progress' | 'completed'>('idle')
+  const [duration, setDuration] = useState(0)
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
       setError(null)
-      setCalled(false)
+      if (callStatus === 'completed') {
+        setCallStatus('idle')
+        setDuration(0)
+        setRecordingUrl(null)
+        setCallSid(null)
+      }
     }
   }, [open])
 
@@ -1325,16 +1335,74 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
     return () => window.removeEventListener('gofox:dial', handler)
   }, [])
 
+  // Poll call status and recordings in real time
+  useEffect(() => {
+    if (!callSid || callStatus === 'completed') return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/telephony/calls/${callSid}`, { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json() as { status?: string; duration?: number; recording_url?: string }
+          if (data.recording_url) setRecordingUrl(data.recording_url)
+          if (data.duration) setDuration(data.duration)
+          if (data.status === 'in-progress' && callStatus !== 'in-progress') {
+            setCallStatus('in-progress')
+          } else if (['completed', 'canceled', 'busy', 'no-answer', 'failed'].includes(data.status || '')) {
+            setCallStatus('completed')
+            clearInterval(interval)
+          }
+        }
+      } catch {}
+    }, 1500)
+    return () => clearInterval(interval)
+  }, [callSid, callStatus])
+
+  // Live stopwatch while in-progress
+  useEffect(() => {
+    if (callStatus !== 'in-progress') return
+    const timer = setInterval(() => {
+      setDuration((d) => d + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [callStatus])
+
+  const formatSecs = (s: number) => {
+    const mins = Math.floor(s / 60)
+    const secs = s % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
   const call = async () => {
     setBusy(true)
     setError(null)
+    setRecordingUrl(null)
+    setDuration(0)
+    setCallStatus('calling')
     try {
-      await post('/api/telephony/dial', { number })
-      setCalled(true)
+      const res = await post<{ ok: boolean; sid: string; recording_url?: string }>('/api/telephony/dial', {
+        number,
+        agent_phone: agentPhone || me?.phone || '',
+      })
+      setCallSid(res.sid)
+      if (res.recording_url) setRecordingUrl(res.recording_url)
+      setCallStatus('ringing')
     } catch (err: any) {
       setError(err?.message ?? 'The call could not be placed.')
+      setCallStatus('idle')
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const hangup = async () => {
+    if (!callSid) return
+    setBusy(true)
+    try {
+      await post('/api/telephony/hangup', { sid: callSid })
+      setCallStatus('completed')
+    } catch {}
+    finally {
       setBusy(false)
     }
   }
@@ -1344,10 +1412,18 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <>
       <div className="gx-scrim" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-[95] flex w-[320px] flex-col bg-surface shadow-[var(--shadow-pop)] border-l border-line animate-in slide-in-from-right duration-200">
-        {/* Header matching Page 3 top */}
+      <div className="fixed inset-y-0 right-0 z-[95] flex w-[330px] flex-col bg-surface shadow-[var(--shadow-pop)] border-l border-line animate-in slide-in-from-right duration-200">
+        {/* Header */}
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-line px-4 bg-surface">
-          <span className="text-[12px] font-bold uppercase tracking-wider text-[#667085]">DIAL PAD</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-bold uppercase tracking-wider text-[#667085]">DIAL PAD</span>
+            {callStatus === 'in-progress' ? (
+              <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 border border-emerald-500/20">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
+                LIVE
+              </span>
+            ) : null}
+          </div>
           <button
             onClick={onClose}
             className="flex size-6 items-center justify-center rounded text-[#667085] hover:bg-surface-2 hover:text-ink"
@@ -1359,8 +1435,8 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
 
         {/* Dial Pad Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="rounded-lg border border-line bg-surface-2 p-3">
-            <div className="text-[11px] font-semibold text-[#667085] mb-1">Type or paste number</div>
+          <div className="rounded-xl border border-line bg-surface-2 p-3">
+            <div className="text-[11px] font-semibold text-[#667085] mb-1">Customer phone number</div>
             <div className="flex items-center justify-between gap-1">
               <input
                 className="w-full bg-transparent text-[16px] font-mono tracking-wider text-ink outline-none placeholder:text-[#98a2b3]"
@@ -1388,7 +1464,7 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
               <button
                 key={key}
                 type="button"
-                className="flex h-12 items-center justify-center rounded-lg border border-line bg-surface text-[18px] font-medium text-ink hover:bg-surface-2 hover:border-[#d0d5dd] transition-colors shadow-sm"
+                className="flex h-11 items-center justify-center rounded-lg border border-line bg-surface text-[17px] font-medium text-ink hover:bg-surface-2 hover:border-[#d0d5dd] transition-colors shadow-sm"
                 onClick={() => setNumber((n) => n + key)}
               >
                 {key}
@@ -1396,36 +1472,87 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
             ))}
           </div>
 
-          {/* Call Button */}
-          <button
-            type="button"
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#12b76a] text-white font-semibold text-[14px] hover:bg-[#039855] disabled:opacity-50 transition-colors shadow-sm"
-            onClick={() => void call()}
-            disabled={busy || number.replace(/\D/g, '').length < 3}
-          >
-            <Phone size={16} />
-            <span>{busy ? 'Calling…' : 'Call'}</span>
-          </button>
-
-          {called ? (
-            <div className="rounded-xl border border-[#a6f4c5] bg-[#edfcf2] p-3 text-[12px] text-[#037847] space-y-1.5 shadow-sm">
+          {/* Active Call Live Control Console */}
+          {callStatus === 'calling' || callStatus === 'ringing' || callStatus === 'in-progress' ? (
+            <div className="rounded-2xl border border-line bg-surface-2/60 p-4 space-y-3 shadow-sm animate-in fade-in">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-[12.5px]">Call connected</span>
+                <div>
+                  <div className="text-[11px] font-semibold uppercase text-muted tracking-wider">
+                    {callStatus === 'calling' ? 'Connecting to Twilio…' : callStatus === 'ringing' ? 'Ringing destination…' : 'Active Conversation'}
+                  </div>
+                  <div className="text-[19px] font-mono font-bold text-ink mt-0.5">
+                    {formatSecs(duration)}
+                  </div>
+                </div>
                 <span className="flex items-center gap-1.5 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10.5px] font-bold text-rose-600 border border-rose-500/20">
                   <span className="size-1.5 rounded-full bg-rose-600 animate-ping" />
                   REC ACTIVE
                 </span>
               </div>
+
+              {/* End Call Button */}
+              <button
+                type="button"
+                onClick={hangup}
+                disabled={busy}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 text-white font-semibold text-[13.5px] hover:bg-rose-700 transition shadow-sm"
+              >
+                <Phone size={16} className="rotate-[135deg]" />
+                <span>End Call (Disconnect)</span>
+              </button>
+            </div>
+          ) : callStatus === 'completed' ? (
+            <div className="rounded-2xl border border-[#a6f4c5] bg-[#edfcf2] p-4 text-[12px] text-[#037847] space-y-2.5 shadow-sm animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[13px]">Call Disconnected</span>
+                <span className="text-[11.5px] font-semibold text-[#025a35]">Duration: {formatSecs(duration)}</span>
+              </div>
               <div className="text-[11px] text-[#025a35] leading-relaxed">
-                Twilio dual-channel audio recording is active. All attempt logs and audio recordings are saved to your CRM timeline.
+                Call ended and synchronized to CRM timeline. Dual-channel recording stored securely.
+              </div>
+              {recordingUrl ? (
+                <div className="pt-1">
+                  <div className="mb-1 text-[10.5px] font-bold uppercase tracking-wider text-[#025a35]">Call Audio Recording</div>
+                  <audio controls className="w-full h-8" src={recordingUrl} preload="none">
+                    Your browser does not support audio playback.
+                  </audio>
+                </div>
+              ) : null}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => void call()}
+                  className="flex-1 rounded-lg bg-[#12b76a] py-2 text-white font-semibold text-[12px] hover:bg-[#039855] text-center"
+                >
+                  Re-call
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCallStatus('idle'); setCallSid(null) }}
+                  className="rounded-lg border border-[#a6f4c5] bg-white px-3 py-2 text-[#037847] font-semibold text-[12px] hover:bg-surface-2"
+                >
+                  New Dial
+                </button>
               </div>
             </div>
-          ) : null}
+          ) : (
+            /* Call Button */
+            <button
+              type="button"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#12b76a] text-white font-semibold text-[14px] hover:bg-[#039855] disabled:opacity-50 transition-colors shadow-sm"
+              onClick={() => void call()}
+              disabled={busy || number.replace(/\D/g, '').length < 3}
+            >
+              <Phone size={16} />
+              <span>{busy ? 'Initiating…' : 'Call'}</span>
+            </button>
+          )}
 
           {error ? <div className="rounded-lg border border-[#fecdca] bg-[#fef3f2] p-2.5 text-[12px] text-[#b42318]">{error}</div> : null}
 
-          <div className="rounded-lg border border-line bg-surface-2 p-2.5 text-[11px] text-[#667085] leading-relaxed">
-            Calls use your configured workspace telephony (Twilio). All attempts are recorded and saved to your contact timeline.
+          <div className="rounded-xl border border-line bg-surface-2 p-3 text-[11px] text-[#667085] leading-relaxed space-y-1">
+            <div className="font-semibold text-ink">Twilio Enterprise Telephony</div>
+            <div>Real-time two-way call connection and automated dual-channel call recording active.</div>
           </div>
         </div>
       </div>
