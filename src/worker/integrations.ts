@@ -268,7 +268,22 @@ export async function loadConnection(env: Env, orgId: string, provider: string):
   )
     .bind(orgId, provider)
     .first<{ provider: string; account: string | null; access_token: string; config: string | null }>()
-  if (!row) return null
+  if (!row) {
+    if (provider === 'twilio' && ((env as unknown as Record<string, unknown>).TWILIO_ACCOUNT_SID || (env as unknown as Record<string, unknown>).TWILIO_SID)) {
+      const sid = String((env as unknown as Record<string, unknown>).TWILIO_ACCOUNT_SID ?? (env as unknown as Record<string, unknown>).TWILIO_SID ?? '').trim()
+      const token = String((env as unknown as Record<string, unknown>).TWILIO_AUTH_TOKEN ?? (env as unknown as Record<string, unknown>).TWILIO_TOKEN ?? '').trim()
+      const from = String((env as unknown as Record<string, unknown>).TWILIO_FROM ?? '+17274752141').trim()
+      if (sid && token) {
+        return {
+          provider: 'twilio',
+          account: from || sid,
+          access_token: `${sid}:${token}`,
+          config: { account_sid: sid, auth_token: token, from_number: from, from },
+        }
+      }
+    }
+    return null
+  }
   let config: Record<string, unknown> = {}
   try {
     config = row.config ? (JSON.parse(row.config) as Record<string, unknown>) : {}
@@ -298,7 +313,7 @@ export async function sendSms(
 ): Promise<{ ok: true; sid: string } | { ok: false; status: number; error: string }> {
   const stored = await loadConnection(env, orgId, 'twilio')
   if (!stored) return { ok: false, status: 409, error: 'Twilio is not connected, so no SMS was sent. Connect it in Connected apps.' }
-  const rawFrom = String(stored.config.from ?? stored.config.from_number ?? stored.account ?? (env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const rawFrom = String(stored.config.from ?? stored.config.from_number ?? stored.account ?? (env as unknown as Record<string, unknown>).TWILIO_FROM ?? '+17274752141').trim()
   const from = rawFrom.replace(/[\s()-]/g, '')
   if (!from) return { ok: false, status: 409, error: 'Twilio is connected but no sending number is configured. Add one in the Twilio setup panel.' }
   

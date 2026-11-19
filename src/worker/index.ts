@@ -3344,7 +3344,7 @@ app.post('/api/telephony/dial', async (c) => {
   }
 
   const connection = await loadConnection(c.env, user.org_id, 'twilio')
-  const rawFrom = String(connection?.config.from ?? connection?.config.from_number ?? connection?.account ?? (c.env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const rawFrom = String(connection?.config.from ?? connection?.config.from_number ?? connection?.account ?? (c.env as unknown as Record<string, unknown>).TWILIO_FROM ?? '+17274752141').trim()
   const from = rawFrom.replace(/[\s()-]/g, '')
 
   if (!connection) {
