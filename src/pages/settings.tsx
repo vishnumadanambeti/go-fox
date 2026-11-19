@@ -1322,10 +1322,16 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
   const { me } = useApp()
   const [navSearch, setNavSearch] = useState('')
 
-  const isProfileMode = path.startsWith('/settings/profile')
+  const isEmailAccountsPath =
+    path.startsWith('/settings/email-accounts') ||
+    path.startsWith('/general-settings/email-accounts') ||
+    path === '/settings/email' ||
+    path === '/settings/mailboxes'
+
+  const isProfileMode = path.startsWith('/settings/profile') || isEmailAccountsPath
 
   const topTabs = [
-    { label: 'Profile Settings', path: '/settings/profile', active: path.startsWith('/settings/profile') },
+    { label: 'Profile Settings', path: '/settings/profile', active: path.startsWith('/settings/profile') || isEmailAccountsPath },
     { label: 'Account Settings', path: '/settings/account', active: path === '/settings/account' || path === '/settings/users' || path === '/settings/roles' },
     { label: 'Website Settings', path: '/settings/apps', active: path.startsWith('/settings/apps') },
     { label: 'App Settings', path: '/settings/themes', active: path === '/settings/themes' || path === '/settings/language' },
@@ -1356,7 +1362,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
     { label: 'Notifications', path: '/settings/profile' },
     { label: 'Connected Apps', path: '/settings/apps' },
     { label: 'Sync', path: '/settings/profile' },
-    { label: 'Email Accounts', path: '/general-settings/email-accounts' },
+    { label: 'Email Accounts', path: '/settings/email-accounts' },
     { label: 'Voicemails', path: '/settings/profile' },
   ]
 
@@ -1366,6 +1372,14 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
     if (!navSearch.trim()) return navItems
     return navItems.filter((i) => i.label.toLowerCase().includes(navSearch.toLowerCase()))
   }, [navItems, navSearch])
+
+  const isNavActive = (itemPath: string) => {
+    if (itemPath === '/settings/email-accounts') {
+      return isEmailAccountsPath
+    }
+    return path === itemPath
+  }
+  const hasExactNavMatch = filteredNav.some((i) => isNavActive(i.path))
 
   const userName = me?.name || 'vishnu m'
   const userEmail = me?.email || 'vishnu.m0827@gmail.com'
@@ -1428,7 +1442,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
             </div>
             <nav className="space-y-0.5 max-h-[calc(100vh-220px)] overflow-y-auto gx-scroll">
               {filteredNav.map((item, idx) => {
-                const active = idx === 0 || path === item.path
+                const active = hasExactNavMatch ? isNavActive(item.path) : idx === 0
                 return (
                   <Link
                     key={item.label}

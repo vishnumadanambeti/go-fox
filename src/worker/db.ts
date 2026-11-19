@@ -118,6 +118,73 @@ export function ensureDb(env: Env): Promise<void> {
           /* column already exists */
         }
       }
+
+      // Ensure email_accounts table exists and backfill any active integration tokens
+      try {
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS email_accounts (
+            id TEXT PRIMARY KEY,
+            org_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            account_email TEXT NOT NULL,
+            display_name TEXT,
+            connection_status TEXT NOT NULL DEFAULT 'connected',
+            access_token TEXT,
+            refresh_token TEXT,
+            encrypted_refresh_token TEXT,
+            token_type TEXT DEFAULT 'Bearer',
+            scope TEXT,
+            expires_at TEXT,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            imap_host TEXT,
+            imap_port INTEGER,
+            imap_security TEXT,
+            smtp_host TEXT,
+            smtp_port INTEGER,
+            smtp_security TEXT,
+            smtp_username TEXT,
+            smtp_password TEXT,
+            last_sync TEXT,
+            last_error TEXT,
+            messages_synced INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          )
+        `).run()
+        await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_email_accounts_org_user ON email_accounts (org_id, user_id)').run()
+        await env.DB.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_email_accounts_user_provider_email ON email_accounts (org_id, user_id, provider, account_email)').run()
+
+        const existingTokens = await env.DB.prepare("SELECT * FROM integration_tokens WHERE provider IN ('gmail','microsoft365')").all<Record<string, unknown>>()
+        for (const tok of existingTokens.results ?? []) {
+          if (tok.account && tok.org_id) {
+            const firstUser = await env.DB.prepare('SELECT id FROM users WHERE org_id = ? ORDER BY created_at ASC LIMIT 1').bind(tok.org_id).first<{ id: string }>()
+            if (firstUser) {
+              await env.DB.prepare(`
+                INSERT OR IGNORE INTO email_accounts
+                (id, org_id, user_id, provider, account_email, display_name, connection_status, access_token, refresh_token, token_type, scope, expires_at, is_default, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'connected', ?, ?, ?, ?, ?, 1, ?, ?)
+              `).bind(
+                'acc_' + (tok.id || Date.now()),
+                tok.org_id,
+                firstUser.id,
+                tok.provider,
+                tok.account,
+                String(tok.account).split('@')[0],
+                tok.access_token || '',
+                tok.refresh_token || '',
+                tok.token_type || 'Bearer',
+                tok.scope || '',
+                tok.expires_at || '',
+                tok.created_at || new Date().toISOString(),
+                tok.updated_at || new Date().toISOString()
+              ).run().catch(() => {})
+            }
+          }
+        }
+      } catch {
+        /* safely handled */
+      }
       await repairLegacyWorkflowActions(env)
     })().catch((error) => {
       ready = null

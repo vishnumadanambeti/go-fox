@@ -55,7 +55,20 @@ export function gmailRedirectUri(env: Env, requestUrl: string, forwardedProto?: 
   return `${proto}://${host}/api/integrations/gmail/callback`
 }
 
-export async function loadToken(env: Env, orgId: string): Promise<TokenRow | null> {
+export async function loadToken(env: Env, orgId: string, accountId?: string): Promise<TokenRow | null> {
+  if (accountId) {
+    const acc = await env.DB.prepare(
+      `SELECT id, account_email as account, access_token, refresh_token, expires_at FROM email_accounts
+       WHERE org_id = ? AND id = ? AND provider = 'gmail' AND connection_status = 'connected' LIMIT 1`,
+    ).bind(orgId, accountId).first<TokenRow>()
+    if (acc) return acc
+  }
+  const defaultAcc = await env.DB.prepare(
+    `SELECT id, account_email as account, access_token, refresh_token, expires_at FROM email_accounts
+     WHERE org_id = ? AND provider = 'gmail' AND connection_status = 'connected' ORDER BY is_default DESC, created_at ASC LIMIT 1`,
+  ).bind(orgId).first<TokenRow>()
+  if (defaultAcc) return defaultAcc
+
   return env.DB.prepare(
     `SELECT id, account, access_token, refresh_token, expires_at FROM integration_tokens
      WHERE org_id = ? AND provider = 'gmail' LIMIT 1`,
