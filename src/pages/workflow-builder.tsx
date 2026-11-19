@@ -31,6 +31,7 @@ import {
   Clock,
   Combine,
   CornerDownRight,
+  Filter,
   GitBranch,
   Hand,
   Layers,
@@ -50,6 +51,7 @@ import {
   Send,
   Settings2,
   Tag,
+  Target,
   Ticket,
   Trash2,
   Undo2,
@@ -57,6 +59,7 @@ import {
   Webhook,
   X,
   Zap,
+  Award,
   Briefcase,
   Building2,
   Calendar,
@@ -148,7 +151,11 @@ export const NODE_CATALOG: CatalogItem[] = [
   { key: 'wait', label: 'Delay', hint: 'Pause the workflow for a set time', category: 'Common', panel: 'action', icon: Clock, node: { kind: 'wait', label: 'Delay', hint: 'Pause the workflow', type: 'wait', config: baseConfig.wait } },
   { key: 'wait_until', label: 'Wait Until', hint: 'Resume at a specific moment', category: 'Common', panel: 'action', icon: CalendarClock, node: { kind: 'wait_until', label: 'Wait Until', hint: 'Hold until a date and time', type: 'wait', config: { amount: 1, unit: 'days', until: '' } } },
   { key: 'end', label: 'End Workflow', hint: 'Stop processing this record', category: 'Common', panel: 'action', icon: CheckCircle2, node: { kind: 'end', label: 'End Workflow', hint: 'Stop processing this record', type: 'end', config: {} } },
-  { key: 'condition', label: 'Condition', hint: 'Branch on a field value', category: 'Common', panel: 'condition', icon: GitBranch, node: { kind: 'condition', label: 'Check condition', hint: 'Branch on a field value', type: 'condition', config: baseConfig.condition } },
+  { key: 'condition', label: 'Field Condition', hint: 'Branch on field value (status, score, source)', category: 'Common', panel: 'condition', icon: GitBranch, node: { kind: 'condition', label: 'Check condition', hint: 'Branch on a field value', type: 'condition', config: baseConfig.condition } },
+  { key: 'condition_tag', label: 'Tag Check', hint: 'Branch if contact has or lacks a specific tag', category: 'Contact', panel: 'condition', icon: Tag, node: { kind: 'condition', label: 'Check Tag', hint: 'Branch on tag', type: 'condition', config: { field: 'tags', op: 'contains', value: 'vip' } } },
+  { key: 'condition_score', label: 'Score Threshold', hint: 'Branch on minimum lead score points', category: 'CRM & Sales', panel: 'condition', icon: Target, node: { kind: 'condition', label: 'Score Threshold', hint: 'Branch on lead score', type: 'condition', config: { field: 'score', op: 'gt', value: 50 } } },
+  { key: 'condition_stage', label: 'Deal Stage Gate', hint: 'Branch on current pipeline stage', category: 'CRM & Sales', panel: 'condition', icon: Award, node: { kind: 'condition', label: 'Deal Stage Gate', hint: 'Branch on stage', type: 'condition', config: { field: 'stage_id', op: 'not_empty', value: '' } } },
+  { key: 'condition_status', label: 'Status Filter', hint: 'Branch if status is active, won, or open', category: 'Common', panel: 'condition', icon: Filter, node: { kind: 'condition', label: 'Status Filter', hint: 'Branch on status', type: 'condition', config: { field: 'status', op: 'eq', value: 'active' } } },
 
   { key: 'add_tag', label: 'Add Tag', hint: 'Tag the contact or lead', category: 'Contact', panel: 'action', icon: Tag, node: { kind: 'add_tag', label: 'Add Tag', hint: 'Tag the record', type: 'action', action: 'add_tag', config: baseConfig.add_tag } },
   { key: 'remove_tag', label: 'Remove Tag', hint: 'Remove a tag from the record', category: 'Contact', panel: 'action', icon: Minus, node: { kind: 'remove_tag', label: 'Remove Tag', hint: 'Remove a tag', type: 'action', action: 'remove_tag', config: baseConfig.remove_tag } },
@@ -737,27 +744,6 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
     })
   }
 
-  const addStart = () => {
-    if (nodes.some((node) => node.data.type === 'trigger')) return
-    const id = `n_${Math.random().toString(36).slice(2, 9)}`
-    snapshot()
-    setNodes((current) => [
-      ...current,
-      {
-        id,
-        type: 'gx',
-        position: { x: 320, y: 60 },
-        data: {
-          kind: 'trigger',
-          label: 'Start',
-          hint: `Trigger: ${TRIGGERS[0].label}`,
-          type: 'trigger',
-          config: { trigger: TRIGGERS[0].value },
-        },
-        style: { width: 236 },
-      },
-    ])
-  }
 
   const updateNode = (nodeId: string, patchData: Partial<GxData>, record = true) => {
     if (record) snapshot()
@@ -886,7 +872,11 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
   const selectedNode = nodes.find((node) => node.id === selected) ?? null
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
-    return NODE_CATALOG.filter((item) => item.panel === tab).filter((item) => !term || `${item.label} ${item.hint} ${item.category}`.toLowerCase().includes(term))
+    const targetPanel = tab === 'actions' ? 'action' : tab === 'conditions' ? 'condition' : null
+    if (tab === 'triggers') return []
+    return NODE_CATALOG.filter((item) => !targetPanel || item.panel === targetPanel).filter(
+      (item) => !term || `${item.label} ${item.hint} ${item.category}`.toLowerCase().includes(term)
+    )
   }, [search, tab])
   const categories = ['Common', 'Contact', 'CRM & Sales', 'Ticket', 'Developers'] as const
 
@@ -1063,7 +1053,9 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
                 </div>
               )
             })}
-            {filtered.length === 0 ? <p className="px-2 py-6 text-center text-[11.5px] text-faint">No nodes match “{search}”.</p> : null}
+            {tab !== 'triggers' && filtered.length === 0 ? (
+              <p className="px-2 py-6 text-center text-[11.5px] text-faint">No nodes match “{search}”.</p>
+            ) : null}
           </div>
         </aside>
 

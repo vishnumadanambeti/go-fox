@@ -418,7 +418,7 @@ function SidebarContent({ collapsed, onCollapse }: { collapsed: boolean; onColla
 }
 
 function Topbar({ onMenu }: { onMenu: () => void }) {
-  const { me, dark, toggleTheme, notifications, unread, markRead, logout, toast } = useApp()
+  const { me, dark, toggleTheme, notifications, unread, markRead, logout, toast, locale, updateLocale } = useApp()
   const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
@@ -572,12 +572,12 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
               </IconButton>
             )}
           >
-            {() => (
+            {(close) => (
               <div className="p-2 w-52">
                 <div className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Language & Region</div>
                 <div className="space-y-0.5 max-h-60 overflow-y-auto gx-scroll">
                   {LANGUAGES.map((lang) => {
-                    const isSelected = (me?.locale ?? 'en') === lang.code
+                    const isSelected = (locale ?? me?.locale ?? 'en') === lang.code
                     return (
                       <button
                         key={lang.code}
@@ -587,13 +587,10 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                           isSelected ? 'bg-accent-soft text-accent font-semibold' : 'text-ink hover:bg-surface-2',
                         )}
                         onClick={async () => {
-                          try {
-                            await patch('/api/auth/profile', { locale: lang.code })
-                            toast(`Language set to ${lang.name}.`, 'good')
-                            window.location.reload()
-                          } catch {
-                            toast('Could not save language preference.', 'bad')
-                          }
+                          updateLocale(lang.code)
+                          toast(`Language set to ${lang.name}.`, 'good')
+                          close()
+                          patch('/api/auth/profile', { locale: lang.code }).catch(() => undefined)
                         }}
                       >
                         <span className="flex items-center gap-2">

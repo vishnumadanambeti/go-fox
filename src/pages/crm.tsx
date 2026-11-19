@@ -16,7 +16,6 @@ import {
   ExternalLink,
   FileSpreadsheet,
   FileText,
-  Filter,
   Globe,
   History,
   Layers,
@@ -33,10 +32,8 @@ import {
   Send,
   Settings2,
   Share2,
-  SlidersHorizontal,
   Sparkles,
   Star,
-  Tag,
   Trash2,
   Upload,
   UploadCloud,
@@ -2123,11 +2120,336 @@ export function AddContactDrawer({
   )
 }
 
+function QuickTaskModal({
+  open,
+  onClose,
+  contact,
+  onCreated,
+}: {
+  open: boolean
+  onClose: () => void
+  contact: Row
+  onCreated: () => void
+}) {
+  const { meta, toast } = useApp()
+  const [title, setTitle] = useState('')
+  const [priority, setPriority] = useState('medium')
+  const [dueDate, setDueDate] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10))
+  const [assigneeId, setAssigneeId] = useState(contact.owner_id ? String(contact.owner_id) : '')
+  const [desc, setDesc] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const fullName = `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || 'Contact'
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) {
+      toast('Please enter a task title.', 'bad')
+      return
+    }
+    setBusy(true)
+    try {
+      await post('/api/resources/tasks', {
+        title: title.trim(),
+        description: desc.trim() || `Follow up with ${fullName}`,
+        type: 'task',
+        priority,
+        status: 'open',
+        due_date: dueDate,
+        assignee_id: assigneeId || null,
+        related_type: 'contact',
+        related_id: contact.id,
+      })
+      toast(`Task created for ${fullName}.`, 'good')
+      onCreated()
+      onClose()
+      setTitle('')
+      setDesc('')
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not create task.', 'bad')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Add Task for ${fullName}`} wide>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <FormRow label="Task Title *">
+          <input
+            className="gx-input"
+            placeholder="e.g. Follow up regarding contract renewal"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+          />
+        </FormRow>
+        <div className="grid grid-cols-2 gap-3">
+          <FormRow label="Priority">
+            <select className="gx-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </FormRow>
+          <FormRow label="Due Date">
+            <input type="date" className="gx-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </FormRow>
+        </div>
+        <FormRow label="Assignee">
+          <select className="gx-select" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
+            <option value="">Unassigned</option>
+            {(meta?.users ?? []).map((u) => (
+              <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+            ))}
+          </select>
+        </FormRow>
+        <FormRow label="Description (optional)">
+          <textarea
+            className="gx-input min-h-[64px]"
+            placeholder="Details or action items..."
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+          />
+        </FormRow>
+        <div className="flex justify-end gap-2 pt-2 border-t border-line">
+          <Button type="button" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" variant="primary" loading={busy}>Create Task</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function QuickDealModal({
+  open,
+  onClose,
+  contact,
+  onCreated,
+}: {
+  open: boolean
+  onClose: () => void
+  contact: Row
+  onCreated: () => void
+}) {
+  const { meta, toast } = useApp()
+  const fullName = `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || 'Contact'
+  const [name, setName] = useState(`${fullName} - Opportunity`)
+  const [value, setValue] = useState('25000')
+  const [stageId, setStageId] = useState(() => meta?.stages?.[0]?.id ? String(meta.stages[0].id) : '')
+  const [expectedClose, setExpectedClose] = useState(() => new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10))
+  const [busy, setBusy] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) {
+      toast('Please enter a deal name.', 'bad')
+      return
+    }
+    setBusy(true)
+    try {
+      await post('/api/resources/deals', {
+        name: name.trim(),
+        value: Number(value) || 0,
+        stage_id: stageId || (meta?.stages?.[0]?.id ? String(meta.stages[0].id) : null),
+        contact_id: contact.id,
+        company_id: contact.company_id || null,
+        owner_id: contact.owner_id || null,
+        expected_close: expectedClose,
+        status: 'open',
+      })
+      toast(`Deal "${name.trim()}" created successfully.`, 'good')
+      onCreated()
+      onClose()
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not create deal.', 'bad')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`New Deal for ${fullName}`} wide>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <FormRow label="Deal Name *">
+          <input className="gx-input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        </FormRow>
+        <div className="grid grid-cols-2 gap-3">
+          <FormRow label="Value ($/INR)">
+            <input type="number" className="gx-input" value={value} onChange={(e) => setValue(e.target.value)} />
+          </FormRow>
+          <FormRow label="Expected Close">
+            <input type="date" className="gx-input" value={expectedClose} onChange={(e) => setExpectedClose(e.target.value)} />
+          </FormRow>
+        </div>
+        <FormRow label="Pipeline Stage">
+          <select className="gx-select" value={stageId} onChange={(e) => setStageId(e.target.value)}>
+            {(meta?.stages ?? []).map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </FormRow>
+        <div className="flex justify-end gap-2 pt-2 border-t border-line">
+          <Button type="button" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" variant="primary" loading={busy}>Save Deal</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function QuickCallModal({
+  open,
+  onClose,
+  contact,
+  onCreated,
+}: {
+  open: boolean
+  onClose: () => void
+  contact: Row
+  onCreated: () => void
+}) {
+  const { toast } = useApp()
+  const fullName = `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || 'Contact'
+  const [number, setNumber] = useState(contact.phone ? String(contact.phone) : '')
+  const [outcome, setOutcome] = useState('connected')
+  const [duration, setDuration] = useState('180')
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!number.trim()) {
+      toast('Please enter a phone number.', 'bad')
+      return
+    }
+    setBusy(true)
+    try {
+      await post('/api/resources/calls', {
+        number: number.trim(),
+        direction: 'outbound',
+        started_at: new Date().toISOString(),
+        duration: Number(duration) || 60,
+        outcome,
+        contact_id: contact.id,
+        notes: notes.trim() || `Outbound phone call with ${fullName}`,
+      })
+      toast('Call logged to timeline.', 'good')
+      onCreated()
+      onClose()
+      setNotes('')
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not log call.', 'bad')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Log Call with ${fullName}`} wide>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <FormRow label="Phone Number *">
+          <input className="gx-input" value={number} onChange={(e) => setNumber(e.target.value)} placeholder="+1 555-0199" />
+        </FormRow>
+        <div className="grid grid-cols-2 gap-3">
+          <FormRow label="Call Outcome">
+            <select className="gx-select" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+              <option value="connected">Connected & Discussed</option>
+              <option value="left_voicemail">Left Voicemail</option>
+              <option value="no_answer">No Answer</option>
+              <option value="busy">Busy / Callback Requested</option>
+              <option value="wrong_number">Wrong Number</option>
+            </select>
+          </FormRow>
+          <FormRow label="Duration (seconds)">
+            <input type="number" className="gx-input" value={duration} onChange={(e) => setDuration(e.target.value)} />
+          </FormRow>
+        </div>
+        <FormRow label="Call Notes">
+          <textarea className="gx-input min-h-[70px]" placeholder="Meeting summary, key objections, next steps..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </FormRow>
+        <div className="flex justify-end gap-2 pt-2 border-t border-line">
+          <Button type="button" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" variant="primary" loading={busy}>Save Call Record</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function QuickNoteModal({
+  open,
+  onClose,
+  contact,
+  onCreated,
+}: {
+  open: boolean
+  onClose: () => void
+  contact: Row
+  onCreated: () => void
+}) {
+  const { toast } = useApp()
+  const fullName = `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim() || 'Contact'
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!note.trim()) {
+      toast('Please enter note content.', 'bad')
+      return
+    }
+    setBusy(true)
+    try {
+      await post('/api/resources/activities', {
+        entity_type: 'contact',
+        entity_id: contact.id,
+        activity_type: 'note',
+        title: 'Discussion Note',
+        description: note.trim(),
+      })
+      toast('Note added to timeline.', 'good')
+      onCreated()
+      onClose()
+      setNote('')
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not add note.', 'bad')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Add Note for ${fullName}`} wide>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        <FormRow label="Note Content *">
+          <textarea
+            className="gx-input min-h-[100px]"
+            placeholder="Key discussion points, customer feedback, preferences..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            autoFocus
+          />
+        </FormRow>
+        <div className="flex justify-end gap-2 pt-2 border-t border-line">
+          <Button type="button" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" variant="primary" loading={busy}>Save Note</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 export function ContactDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { meta, schema, toast } = useApp()
   const navigate = useNavigate()
   const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(false)
+  const [quickTaskOpen, setQuickTaskOpen] = useState(false)
+  const [quickDealOpen, setQuickDealOpen] = useState(false)
+  const [quickCallOpen, setQuickCallOpen] = useState(false)
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false)
   const { data, loading, error, reload } = useFetch<{ record: Row; activity: Row[] }>(id ? `/api/resources/contacts/${id}` : null)
 
   if (!id) return null
@@ -2205,20 +2527,34 @@ export function ContactDrawer({ id, onClose }: { id: string | null; onClose: () 
                 >
                   <Share2 size={13} /> Share
                 </button>
-                <Link
-                  to={`/sales/tasks?contact=${record.id}`}
-                  onClick={onClose}
+                <button
+                  type="button"
+                  onClick={() => setQuickTaskOpen(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-surface text-ink text-[12px] font-medium hover:bg-surface-2 transition shadow-xs"
                 >
                   <Plus size={13} /> Task
-                </Link>
-                <Link
-                  to={`/sales/deals?contact=${record.id}`}
-                  onClick={onClose}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickDealOpen(true)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-[12px] font-medium hover:bg-amber-100 transition shadow-xs"
                 >
                   <Plus size={13} /> Deal
-                </Link>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickNoteOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 text-[12px] font-medium hover:bg-slate-100 transition shadow-xs"
+                >
+                  <Plus size={13} /> Note
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickCallOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-[12px] font-medium hover:bg-teal-100 transition shadow-xs"
+                >
+                  <Phone size={13} /> Call
+                </button>
               </div>
             </div>
             <div className="shrink-0 space-y-1 text-right text-[11.5px]">
@@ -2282,15 +2618,47 @@ export function ContactDrawer({ id, onClose }: { id: string | null; onClose: () 
                 </div>
               </dl>
             ) : tab === 'activity' ? (
-              <ActivityFeed items={data.activity} />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-line pb-2">
+                  <span className="text-[12px] font-semibold text-ink">Timeline & Notes</span>
+                  <Button size="sm" variant="default" onClick={() => setQuickNoteOpen(true)}>
+                    <Plus size={12} /> Add Note
+                  </Button>
+                </div>
+                <ActivityFeed items={data.activity} />
+              </div>
             ) : tab === 'deals' ? (
-              <RelatedList relation={{ entity: 'deals', foreignKey: 'contact_id', label: 'Deals' }} record={record} />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-line pb-2">
+                  <span className="text-[12px] font-semibold text-ink">Associated Deals</span>
+                  <Button size="sm" variant="primary" onClick={() => setQuickDealOpen(true)}>
+                    <Plus size={12} /> Add Deal
+                  </Button>
+                </div>
+                <RelatedList relation={{ entity: 'deals', foreignKey: 'contact_id', label: 'Deals' }} record={record} />
+              </div>
             ) : tab === 'tasks' ? (
-              <RelatedList relation={{ entity: 'tasks', foreignKey: 'related_id', label: 'Tasks', extra: { related_type: 'contact' } }} record={record} />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-line pb-2">
+                  <span className="text-[12px] font-semibold text-ink">Action Items & Tasks</span>
+                  <Button size="sm" variant="primary" onClick={() => setQuickTaskOpen(true)}>
+                    <Plus size={12} /> Add Task
+                  </Button>
+                </div>
+                <RelatedList relation={{ entity: 'tasks', foreignKey: 'related_id', label: 'Tasks', extra: { related_type: 'contact' } }} record={record} />
+              </div>
             ) : tab === 'tickets' ? (
               <RelatedList relation={{ entity: 'tickets', foreignKey: 'contact_id', label: 'Tickets' }} record={record} />
             ) : tab === 'calls' ? (
-              <RelatedList relation={{ entity: 'calls', foreignKey: 'contact_id', label: 'Calls' }} record={record} />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-line pb-2">
+                  <span className="text-[12px] font-semibold text-ink">Call Logs</span>
+                  <Button size="sm" variant="primary" onClick={() => setQuickCallOpen(true)}>
+                    <Phone size={12} /> Log Call
+                  </Button>
+                </div>
+                <RelatedList relation={{ entity: 'calls', foreignKey: 'contact_id', label: 'Calls' }} record={record} />
+              </div>
             ) : tab === 'documents' ? (
               <RelatedList relation={{ entity: 'documents', foreignKey: 'contact_id', label: 'Documents' }} record={record} />
             ) : tab === 'events' ? (
@@ -2308,6 +2676,31 @@ export function ContactDrawer({ id, onClose }: { id: string | null; onClose: () 
           setEditing(false)
           reload()
         }}
+      />
+
+      <QuickTaskModal
+        open={quickTaskOpen}
+        contact={record}
+        onClose={() => setQuickTaskOpen(false)}
+        onCreated={() => reload()}
+      />
+      <QuickDealModal
+        open={quickDealOpen}
+        contact={record}
+        onClose={() => setQuickDealOpen(false)}
+        onCreated={() => reload()}
+      />
+      <QuickCallModal
+        open={quickCallOpen}
+        contact={record}
+        onClose={() => setQuickCallOpen(false)}
+        onCreated={() => reload()}
+      />
+      <QuickNoteModal
+        open={quickNoteOpen}
+        contact={record}
+        onClose={() => setQuickNoteOpen(false)}
+        onCreated={() => reload()}
       />
     </>
   )

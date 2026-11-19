@@ -585,9 +585,9 @@ const handleResourceUpdate = async (c: any) => {
   const denied = requirePerm(c, def.permission)
   if (denied) return denied
   const id = c.req.param('id')
-  const before = await c.env.DB.prepare(`SELECT * FROM ${def.table} WHERE id = ? AND org_id = ?`)
+  const before = (await c.env.DB.prepare(`SELECT * FROM ${def.table} WHERE id = ? AND org_id = ?`)
     .bind(id, user.org_id)
-    .first<Record<string, unknown>>()
+    .first()) as Record<string, unknown> | null
   if (!before) return fail(c, 'NOT_FOUND', 'Record not found.', 404)
 
   const body = await readBody<Record<string, unknown>>(c)

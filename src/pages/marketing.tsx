@@ -31,7 +31,7 @@ import {
 import { patch, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
 import { Link, useNavigate } from '../lib/router'
-import { formatDate, formatDateTime, money, number, titleCase } from '../lib/format'
+import { formatDate, formatDateTime, number, titleCase } from '../lib/format'
 import {
   Badge,
   Button,

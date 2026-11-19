@@ -157,6 +157,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLocaleState(code)
     saveLocale(code)
     applyLocaleToDom(code)
+    setMe((curr) => (curr ? { ...curr, locale: code } : curr))
   }, [])
 
   const t = useCallback((key: string, fallback?: string) => {

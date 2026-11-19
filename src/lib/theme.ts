@@ -1,5 +1,6 @@
 export type ThemeId =
   | 'signature'
+  | 'gofox'
   | 'zoho'
   | 'salesforce'
   | 'hubspot'

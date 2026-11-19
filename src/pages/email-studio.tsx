@@ -1,60 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
-  AlignLeft,
   ArrowLeft,
   Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   Code2,
-  Columns,
-  Copy,
   Eye,
-  FileCode,
-  FileSignature,
-  Folder,
-  Grid,
-  History,
-  Image as ImageIcon,
   KeyRound,
   Laptop,
   Layers,
   Layout,
-  LayoutTemplate,
-  Lock,
   Mail,
   Megaphone,
   Monitor,
-  Moon,
   MoreVertical,
-  Move,
   Palette,
-  PenLine,
   Plus,
-  Redo2,
   RefreshCw,
-  Rss,
   Search,
   Send,
   Settings2,
-  Share2,
-  ShieldCheck,
   Smartphone,
   Sparkles,
-  Square,
-  Sun,
-  Trash2,
   Type,
-  Undo2,
-  Video,
   X,
 } from 'lucide-react'
 import { patch, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
 import { Link, useNavigate } from '../lib/router'
-import { Badge, Button, Card, ErrorState, FormRow, Modal, PageHeader, Spinner, StatusBadge, cx } from '../components/ui'
-import { EMAIL_CATEGORIES, EMAIL_PRESETS, type EmailPreset } from '../data/emailTemplates'
+import { Button, ErrorState, FormRow, Modal, Spinner, StatusBadge, cx } from '../components/ui'
+import { EMAIL_PRESETS, type EmailPreset } from '../data/emailTemplates'
 import { formatDateTime } from '../lib/format'
 
 const VARIABLES = [
@@ -128,6 +102,9 @@ export function EmailStudioPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [seeding, setSeeding] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  if (loading) return <Spinner label="Loading email templates..." />
+  if (error) return <ErrorState message={error.message} onRetry={reload} />
 
   const seedAllToWorkspace = async () => {
     setSeeding(true)
@@ -522,7 +499,7 @@ export function EmailStudioPage() {
               {/* Card 1: Design your template */}
               <div
                 onClick={() => void blank('design')}
-                className="cursor-pointer rounded-xl border border-line bg-surface p-4 transition hover:border-[#FF5900]/60 hover:shadow-md group flex items-start gap-3.5"
+                className={cx("cursor-pointer rounded-xl border border-line bg-surface p-4 transition hover:border-[#FF5900]/60 hover:shadow-md group flex items-start gap-3.5", creating && "opacity-50 pointer-events-none")}
               >
                 <div className="size-10 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition">
                   <Layout size={20} />
@@ -649,7 +626,7 @@ export function EmailStudioPage() {
                           Customize →
                         </button>
                         <span className="text-[10.5px] text-muted">
-                          {preset.conversionRate || '45.2% avg conv'}
+                          {(preset as any).conversionRate || '45.2% avg conv'}
                         </span>
                       </div>
                     </div>

@@ -15,7 +15,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Settings2,
   Shield,
   ShieldCheck,
   Sliders,
@@ -59,19 +58,12 @@ import {
 
 /* ---------------------------------------------------------------- account */
 export function AccountSettingsPage() {
-  const { meta, toast, refreshMeta, me } = useApp()
+  const { toast } = useApp()
   const users = useFetch<{ users: Row[]; invitations: Row[] }>('/api/users')
   const org = useFetch<{ org: Row }>('/api/org')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [invite, setInvite] = useState({ email: '', role: 'sales' })
-  const [orgForm, setOrgForm] = useState<Row>({})
-  const [busy, setBusy] = useState(false)
   const [userSearch, setUserSearch] = useState('')
-  const canManage = meta?.permissions.canManageUsers
-
-  useEffect(() => {
-    if (org.data?.org) setOrgForm(org.data.org)
-  }, [org.data])
 
   if (users.loading || org.loading) return <Spinner label="Loading account" />
   if (users.error || !users.data) return <ErrorState message={users.error?.message ?? 'Could not load users'} onRetry={users.reload} />
@@ -1294,7 +1286,7 @@ export function SettingsHint({ children }: { children: React.ReactNode }) {
 }
 
 /* ---------------------------------------------------------------- Settings Shell */
-const SETTINGS_NAV = [
+export const SETTINGS_NAV = [
   {
     group: 'Organization & Team',
     items: [

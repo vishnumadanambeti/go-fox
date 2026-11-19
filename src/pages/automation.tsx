@@ -870,7 +870,7 @@ function ExecutionTraceModal({
     try {
       const res = await post<{ resumed: number }>('/api/scheduler/tick', {})
       toast(`Scheduler tick cycle finished (${res.resumed ?? 0} resumed).`, 'good')
-      const refreshed = await fetch('/api/workflow-runs?limit=50').then((r) => r.json())
+      const refreshed = (await fetch('/api/workflow-runs?limit=50').then((r) => r.json())) as { data?: Row[] }
       const found = (refreshed.data ?? []).find((r: Row) => r.id === activeRun.id)
       if (found) {
         setActiveRun(found)
