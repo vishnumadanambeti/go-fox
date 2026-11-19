@@ -3280,10 +3280,26 @@ app.get('/api/telephony/twiml', () => {
 app.post('/api/telephony/dial', async (c) => {
   const user = c.get('user')
   const body = await readBody<{ number?: string; contact_id?: string }>(c)
-  const number = String(body.number ?? '').replace(/[^\d+]/g, '')
-  if (number.length < 7) return fail(c, 'VALIDATION_ERROR', 'Enter a valid phone number.', 422)
+  const rawNumber = String(body.number ?? '').replace(/[^\d+]/g, '')
+  if (rawNumber.length < 7) return fail(c, 'VALIDATION_ERROR', 'Enter a valid phone number.', 422)
+
+  let number = rawNumber
+  if (!number.startsWith('+')) {
+    if (number.length === 10 && /^[6-9]/.test(number)) {
+      number = `+91${number}`
+    } else if (number.length === 10) {
+      number = `+1${number}`
+    } else if (number.length === 11 && number.startsWith('1')) {
+      number = `+${number}`
+    } else {
+      number = `+${number}`
+    }
+  }
+
   const connection = await loadConnection(c.env, user.org_id, 'twilio')
-  const from = String(connection?.config.from ?? connection?.config.from_number ?? connection?.account ?? (c.env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const rawFrom = String(connection?.config.from ?? connection?.config.from_number ?? connection?.account ?? (c.env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const from = rawFrom.replace(/[\s()-]/g, '')
+
   if (!connection) {
     await logActivity(c.env, user.org_id, user.id, 'call.blocked', 'call', body.contact_id ?? null, `Dial pad attempt to ${number} blocked: Twilio is not connected`)
     return fail(c, 'PROVIDER_NOT_CONNECTED', 'Twilio is not connected, so no call was placed. Connect it in Connected apps.', 409)
@@ -3293,10 +3309,22 @@ app.post('/api/telephony/dial', async (c) => {
     return fail(c, 'PROVIDER_NOT_CONNECTED', 'Twilio is connected but no caller ID is configured. Add a verified Twilio number in the setup panel.', 409)
   }
   const [sid, token] = connection.access_token.split(':')
+  const twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Connecting your GoFox CRM call.</Say><Pause length="30"/></Response>'
+  const origin = new URL(c.req.url).origin
+  const params: Record<string, string> = {
+    To: number,
+    From: from,
+    Twiml: twiml,
+  }
+  // Twilio only accepts public URLs for Url parameter, so on localhost use Twiml directly
+  if (!origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+    params.Url = `${origin}/api/telephony/twiml`
+  }
+
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Calls.json`, {
     method: 'POST',
     headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}`, 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ To: number, From: from, Url: `${new URL(c.req.url).origin}/api/telephony/twiml` }).toString(),
+    body: new URLSearchParams(params).toString(),
   })
   const data = (await res.json().catch(() => ({}))) as { sid?: string; message?: string; status?: string }
   if (!res.ok || !data.sid) {

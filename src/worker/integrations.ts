@@ -298,8 +298,21 @@ export async function sendSms(
 ): Promise<{ ok: true; sid: string } | { ok: false; status: number; error: string }> {
   const stored = await loadConnection(env, orgId, 'twilio')
   if (!stored) return { ok: false, status: 409, error: 'Twilio is not connected, so no SMS was sent. Connect it in Connected apps.' }
-  const from = String(stored.config.from ?? stored.config.from_number ?? stored.account ?? (env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const rawFrom = String(stored.config.from ?? stored.config.from_number ?? stored.account ?? (env as unknown as Record<string, unknown>).TWILIO_FROM ?? '').trim()
+  const from = rawFrom.replace(/[\s()-]/g, '')
   if (!from) return { ok: false, status: 409, error: 'Twilio is connected but no sending number is configured. Add one in the Twilio setup panel.' }
+  
+  let to = String(args.to ?? '').replace(/[\s()-]/g, '')
+  if (!to.startsWith('+')) {
+    if (to.length === 10 && /^[6-9]/.test(to)) {
+      to = `+91${to}`
+    } else if (to.length === 10) {
+      to = `+1${to}`
+    } else {
+      to = `+${to}`
+    }
+  }
+
   const [sid, token] = stored.access_token.split(':')
   const res = await call(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
     method: 'POST',
@@ -307,7 +320,7 @@ export async function sendSms(
       Authorization: `Basic ${btoa(`${sid}:${token}`)}`,
       'content-type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({ To: args.to, From: from, Body: args.body }).toString(),
+    body: new URLSearchParams({ To: to, From: from, Body: args.body }).toString(),
   })
   const data = await json<{ sid?: string; message?: string }>(res)
   if (!res.ok || !data.sid) return { ok: false, status: 502, error: `Twilio rejected the message (HTTP ${res.status}${data.message ? `: ${data.message}` : ''}).` }
