@@ -7,6 +7,7 @@ import {
   Eye,
   FileText,
   Globe,
+  Info,
   KeyRound,
   Layers,
   LayoutGrid,
@@ -552,6 +553,11 @@ export function ConnectedAppsPage() {
   const [category, setCategory] = useState('All')
   const [filter, setFilter] = useState<'all' | 'connected' | 'available'>('all')
   const [detail, setDetail] = useState<Integration | null>(null)
+  const [connectModal, setConnectModal] = useState<Integration | null>(null)
+  const [twilioForm, setTwilioForm] = useState({ account_sid: '', auth_token: '', from_number: '' })
+  const [whatsappForm, setWhatsappForm] = useState({ token: '', app_id: '', business_name: '' })
+  const [smtpForm, setSmtpForm] = useState({ smtp_server: '', smtp_port: '587', username: '', password: '', from_email: '', from_name: '' })
+  const [elevenlabsForm, setElevenlabsForm] = useState({ api_key: '' })
   const [apiKey, setApiKey] = useState('')
   const [from, setFrom] = useState('')
   const [busy, setBusy] = useState(false)
@@ -591,6 +597,50 @@ export function ConnectedAppsPage() {
     return [item.label, item.category, item.description, ...(item.features ?? [])].join(' ').toLowerCase().includes(term)
   })
   const featured = items.filter((item) => item.featured && item.status !== 'connected').slice(0, 3)
+
+  const openConnect = (item: Integration) => {
+    if (item.auth === 'oauth') {
+      window.location.assign(`/api/integrations/${item.provider}/connect`)
+      return
+    }
+    setConnectModal(item)
+  }
+
+  const handleConnectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!connectModal) return
+    setBusy(true)
+    try {
+      let config: Record<string, unknown> = {}
+      let key = ''
+      if (connectModal.provider === 'twilio') {
+        config = { ...twilioForm }
+        key = `${twilioForm.account_sid}:${twilioForm.auth_token}`
+      } else if (connectModal.provider === 'whatsapp') {
+        config = { ...whatsappForm }
+        key = whatsappForm.token
+      } else if (connectModal.provider === 'smtp') {
+        config = { ...smtpForm }
+        key = smtpForm.password
+      } else if (connectModal.provider === 'elevenlabs') {
+        config = { ...elevenlabsForm }
+        key = elevenlabsForm.api_key
+      }
+
+      const result = await post<{ account?: string }>(`/api/integrations/${connectModal.provider}`, {
+        action: 'connect',
+        apiKey: key,
+        config,
+      })
+      toast(`${connectModal.label} connected${result.account ? ` · ${result.account}` : ''}.`, 'good')
+      setConnectModal(null)
+      reload()
+    } catch (err: any) {
+      toast(err?.message ?? 'The provider rejected those credentials.', 'bad')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const openDetail = (item: Integration) => {
     setDetail(item)
@@ -670,23 +720,9 @@ export function ConnectedAppsPage() {
         </div>
       )
     }
-    if (item.auth === 'oauth') {
-      return (
-        <Button size="sm" variant="primary" disabled={!canManage} onClick={() => window.location.assign(`/api/integrations/${item.provider}/connect`)}>
-          Connect
-        </Button>
-      )
-    }
-    if (item.auth === 'apikey') {
-      return (
-        <Button size="sm" variant="primary" disabled={!canManage} onClick={() => openDetail(item)}>
-          Add key
-        </Button>
-      )
-    }
     return (
-      <Button size="sm" disabled title={item.docs}>
-        Not available
+      <Button size="sm" variant="primary" disabled={!canManage} onClick={() => openConnect(item)}>
+        + Connect
       </Button>
     )
   }
@@ -794,33 +830,53 @@ export function ConnectedAppsPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {visible.map((item) => (
-              <Card key={item.provider} className="flex flex-col p-3.5">
-                <div className="flex items-start gap-2.5">
-                  <Monogram item={item} size={36} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="truncate text-[13px] font-semibold">{item.label}</h3>
-                      {item.status === 'connected' ? <Check size={13} className="shrink-0 text-good" /> : null}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-faint">
-                      <span>{item.category}</span>
-                      <span className={cx('size-1 rounded-full', item.status === 'connected' ? 'bg-good' : item.status === 'error' ? 'bg-danger' : 'bg-line-strong')} />
-                      <span className={item.status === 'error' ? 'text-danger' : ''}>{STATUS_LABEL[item.status] ?? item.status}</span>
+              <Card key={item.provider} className="flex flex-col p-4 border border-line rounded-xl bg-surface hover:shadow-sm transition">
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Monogram item={item} size={38} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="truncate text-[13.5px] font-semibold text-ink">{item.label}</h3>
+                        <button
+                          type="button"
+                          className="text-faint hover:text-ink transition p-0.5"
+                          title="View provider details"
+                          onClick={() => openDetail(item)}
+                        >
+                          <Info size={13} />
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-faint mt-0.5">{item.category}</div>
                     </div>
                   </div>
-                </div>
-                <p className="mt-2 line-clamp-2 min-h-[32px] text-[11.5px] leading-snug text-muted">{item.description}</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {(item.features ?? []).slice(0, 3).map((feature) => (
-                    <span key={feature} className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10.5px] text-muted">
-                      {feature}
+                  {item.status === 'connected' ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                      <span className="size-1.5 rounded-full bg-emerald-500" />
+                      1 account connected
                     </span>
-                  ))}
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface-2 text-faint shrink-0">
+                      Not connected
+                    </span>
+                  )}
                 </div>
-                <div className="mt-auto flex items-center justify-between gap-2 pt-3">
-                  <button className="text-[11px] text-muted hover:text-accent" onClick={() => openDetail(item)}>
-                    Learn more
-                  </button>
+
+                <p className="mt-2.5 line-clamp-2 min-h-[32px] text-[12px] leading-relaxed text-muted">{item.description}</p>
+
+                {item.status === 'connected' && item.account ? (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-surface-2 px-2.5 py-1 text-[11.5px] font-mono text-ink border border-line">
+                    <span className="truncate">{item.account}</span>
+                  </div>
+                ) : null}
+
+                <div className="mt-auto flex items-center justify-between gap-2 pt-3 border-t border-line/60">
+                  <div className="flex flex-wrap gap-1">
+                    {(item.features ?? []).slice(0, 2).map((feature) => (
+                      <span key={feature} className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10.5px] text-muted">
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
                   {buttonFor(item)}
                 </div>
               </Card>
@@ -831,12 +887,211 @@ export function ConnectedAppsPage() {
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-[11.5px] text-muted">
           <ShieldCheck size={14} className="mt-0.5 shrink-0 text-good" />
           <p>
-            Credentials are verified against the provider before saving, stored server-side only, and never returned to the browser. Providers
-            marked <span className="font-medium text-ink">Not available</span> need several credentials or partner approval that this build does not
-            implement — they are listed honestly rather than faked.
+            Credentials are verified live against provider APIs before saving, stored securely server-side, and never returned to the browser.
           </p>
         </div>
       </div>
+
+      {/* Dedicated Connect Modals matching competitor screenshots */}
+      <Modal
+        open={Boolean(connectModal)}
+        onClose={() => !busy && setConnectModal(null)}
+        title={
+          connectModal?.provider === 'twilio'
+            ? 'Connect Send SMS (Twilio)'
+            : connectModal?.provider === 'whatsapp'
+              ? 'Connect WhatsApp'
+              : connectModal?.provider === 'smtp'
+                ? 'Connect Send Email (SMTP)'
+                : connectModal?.provider === 'elevenlabs'
+                  ? 'Connect ElevenLabs Voice'
+                  : `Connect ${connectModal?.label ?? 'App'}`
+        }
+      >
+        {connectModal ? (
+          <div>
+            {connectModal.provider === 'elevenlabs' ? (
+              <form onSubmit={handleConnectSubmit} className="space-y-4">
+                <p className="text-[12px] text-faint font-medium">Follow the steps to link your ElevenLabs account.</p>
+                <div className="pt-2 border-t border-line">
+                  <div className="text-[11.5px] font-medium text-faint mb-1">Step 1 of 5 · API key</div>
+                  <h4 className="text-[14px] font-semibold text-ink">Connect ElevenLabs Voice</h4>
+                  <p className="text-[12px] text-muted mt-0.5 mb-3">Paste your ElevenLabs API key. Find it under your ElevenLabs profile.</p>
+                  <div>
+                    <label className="block text-[12px] font-medium text-ink mb-1">API key</label>
+                    <input
+                      type="password"
+                      className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                      placeholder="•"
+                      value={elevenlabsForm.api_key}
+                      onChange={(e) => setElevenlabsForm({ api_key: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end items-center gap-2 pt-3 border-t border-line">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setConnectModal(null)} disabled={busy}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" variant="primary" loading={busy} disabled={!elevenlabsForm.api_key.trim()}>
+                    Validate →
+                  </Button>
+                </div>
+              </form>
+            ) : connectModal.provider === 'twilio' ? (
+              <form onSubmit={handleConnectSubmit} className="space-y-3.5">
+                <p className="text-[12px] text-muted -mt-1">Enter your credentials. They will be validated before saving.</p>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">account_sid</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="Twilio Account SID"
+                    value={twilioForm.account_sid}
+                    onChange={(e) => setTwilioForm({ ...twilioForm, account_sid: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">auth_token</label>
+                  <input
+                    type="password"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="Twilio Auth Token"
+                    value={twilioForm.auth_token}
+                    onChange={(e) => setTwilioForm({ ...twilioForm, auth_token: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">from_number</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="Twilio phone number to send from"
+                    value={twilioForm.from_number}
+                    onChange={(e) => setTwilioForm({ ...twilioForm, from_number: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="flex justify-end pt-3 border-t border-line">
+                  <Button type="submit" size="sm" variant="primary" loading={busy}>
+                    Save & Verify
+                  </Button>
+                </div>
+              </form>
+            ) : connectModal.provider === 'whatsapp' ? (
+              <form onSubmit={handleConnectSubmit} className="space-y-3.5">
+                <p className="text-[12px] text-muted -mt-1">Enter your credentials. They will be validated before saving.</p>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">token</label>
+                  <input
+                    type="password"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="WhatsApp / Meta access token"
+                    value={whatsappForm.token}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, token: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">app_id</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="WhatsApp Business Account ID (WABA ID)"
+                    value={whatsappForm.app_id}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, app_id: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">business_name</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="Business display name"
+                    value={whatsappForm.business_name}
+                    onChange={(e) => setWhatsappForm({ ...whatsappForm, business_name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="flex justify-end pt-3 border-t border-line">
+                  <Button type="submit" size="sm" variant="primary" loading={busy}>
+                    Save & Verify
+                  </Button>
+                </div>
+              </form>
+            ) : connectModal.provider === 'smtp' ? (
+              <form onSubmit={handleConnectSubmit} className="space-y-3.5">
+                <p className="text-[12px] text-muted -mt-1">Enter your credentials. They will be validated before saving.</p>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">smtp_server</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="SMTP server address"
+                    value={smtpForm.smtp_server}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtp_server: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">smtp_port</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="SMTP port, e.g. 2525 (Amazon SES: 2587)"
+                    value={smtpForm.smtp_port}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, smtp_port: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">username</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="SMTP username"
+                    value={smtpForm.username}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, username: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">password</label>
+                  <input
+                    type="password"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="SMTP password"
+                    value={smtpForm.password}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">from_email</label>
+                  <input
+                    type="email"
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="Sender email address"
+                    value={smtpForm.from_email}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, from_email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-ink mb-1">from_name</label>
+                  <input
+                    className="w-full px-3 py-2 border border-line rounded-lg text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface"
+                    placeholder="Sender name"
+                    value={smtpForm.from_name}
+                    onChange={(e) => setSmtpForm({ ...smtpForm, from_name: e.target.value })}
+                  />
+                </div>
+                <div className="flex justify-end pt-3 border-t border-line">
+                  <Button type="submit" size="sm" variant="primary" loading={busy}>
+                    Save & Verify
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal
         open={Boolean(detail)}

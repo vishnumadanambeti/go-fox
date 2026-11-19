@@ -2008,24 +2008,24 @@ app.post('/api/integrations/:provider', async (c) => {
   }
   const entry = CATALOG_MAP.get(provider)
   if (body.action === 'connect' && entry?.auth === 'apikey') {
-    const apiKey = String(body.apiKey ?? '').trim()
-    if (!apiKey) return fail(c, 'VALIDATION_ERROR', 'Paste the API key to connect.', 422, { apiKey: 'Required.' })
-    const verified = await verifyCredential(provider, apiKey)
+    const config = (body.config ?? {}) as Record<string, unknown>
+    const apiKey = String(body.apiKey ?? config.password ?? config.auth_token ?? config.token ?? config.api_key ?? '').trim()
+    const verified = await verifyCredential(provider, apiKey, config)
     if (!verified.ok) {
-      return fail(c, 'PROVIDER_ERROR', `${row.label} rejected that key. ${verified.detail} Nothing was saved.`, 502)
+      return fail(c, 'PROVIDER_ERROR', `${row.label} validation failed: ${verified.detail}`, 422)
     }
     const now = nowIso()
     await c.env.DB.prepare(
       `INSERT OR REPLACE INTO integration_tokens (id, org_id, provider, account, access_token, refresh_token, token_type, scope, expires_at, created_at, updated_at, config)
        VALUES (?, ?, ?, ?, ?, NULL, 'api_key', NULL, NULL, ?, ?, ?)`,
     )
-      .bind(uid(), user.org_id, provider, verified.account, apiKey, now, now, JSON.stringify(body.config ?? {}))
+      .bind(uid(), user.org_id, provider, verified.account, apiKey, now, now, JSON.stringify(config))
       .run()
     await c.env.DB.prepare("UPDATE integrations SET status = 'connected', account = ?, last_sync = ?, config = ? WHERE id = ?")
-      .bind(verified.account, now, JSON.stringify(body.config ?? {}), row.id)
+      .bind(verified.account, now, JSON.stringify(config), row.id)
       .run()
     await audit(c.env, user.org_id, user.id, 'integration.connect', 'integration', row.id, null, { provider, mode: 'api_key' }, c.req.header('cf-connecting-ip'))
-    await logActivity(c.env, user.org_id, user.id, 'integration.connected', 'integration', row.id, `${row.label} connected with an API key`)
+    await logActivity(c.env, user.org_id, user.id, 'integration.connected', 'integration', row.id, `${row.label} connected (${verified.account})`)
     return c.json({ ok: true, status: 'connected', account: verified.account })
   }
 
@@ -2049,7 +2049,7 @@ app.post('/api/integrations/:provider', async (c) => {
 app.get('/api/integrations', async (c) => {
   const user = c.get('user')
   await ensureCatalog(c.env, user.org_id)
-  const rows = await c.env.DB.prepare("SELECT * FROM integrations WHERE org_id = ? AND provider IN ('gmail', 'twilio') ORDER BY category, label")
+  const rows = await c.env.DB.prepare("SELECT * FROM integrations WHERE org_id = ? AND provider IN ('gmail', 'twilio', 'whatsapp', 'smtp', 'elevenlabs') ORDER BY category, label")
     .bind(user.org_id)
     .all<Record<string, unknown>>()
   const tokens = await c.env.DB.prepare('SELECT provider, account, updated_at FROM integration_tokens WHERE org_id = ?')

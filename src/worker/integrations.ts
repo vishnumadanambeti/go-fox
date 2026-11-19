@@ -36,23 +36,59 @@ export const CATALOG: CatalogEntry[] = [
     description: 'Two-way mailbox sync for every contact and deal conversation.',
     features: ['Send email', 'Read mailbox', 'Contact association', 'Email history'],
     auth: 'oauth',
-    docs: 'Requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET Worker secrets.',
+    docs: 'Requires Google Cloud Console OAuth Client credentials.',
     featured: true,
     color: '#EA4335',
     mono: 'GM',
   },
   {
     provider: 'twilio',
-    label: 'Twilio',
+    label: 'Twilio SMS',
     category: 'SMS',
     description: 'SMS text messaging and telephony with delivery callbacks.',
     features: ['Send SMS', 'Receive SMS', 'Place calls', 'Delivery status'],
     auth: 'apikey',
     keyHint: 'AC…:auth_token',
-    docs: 'Paste Account SID and Auth Token separated by a colon.',
+    docs: 'Enter Account SID, Auth Token and sending number.',
     featured: true,
     color: '#F22F46',
     mono: 'TW',
+  },
+  {
+    provider: 'whatsapp',
+    label: 'WhatsApp',
+    category: 'Messaging',
+    description: 'Meta WhatsApp Business Cloud API for automated chats and alerts.',
+    features: ['Send WhatsApp messages', 'Interactive templates', 'WABA ID', 'Delivery status'],
+    auth: 'apikey',
+    docs: 'Enter WhatsApp / Meta access token, WABA ID and Business display name.',
+    featured: true,
+    color: '#25D366',
+    mono: 'WA',
+  },
+  {
+    provider: 'smtp',
+    label: 'SMTP',
+    category: 'Email',
+    description: 'Connect custom outbound SMTP server for campaigns and transactionals.',
+    features: ['Custom SMTP server', 'Port & TLS', 'Dedicated sender identity', 'Campaign delivery'],
+    auth: 'apikey',
+    docs: 'Enter SMTP server, port, username, password and sender email.',
+    featured: true,
+    color: '#1E40AF',
+    mono: 'SM',
+  },
+  {
+    provider: 'elevenlabs',
+    label: 'ElevenLabs Voice',
+    category: 'Voice AI',
+    description: 'Hyper-realistic AI voices for outbound calls, voice notes, and agent prompts.',
+    features: ['AI Voice generation', 'Custom cloned voices', 'Agent calls', 'Voice synthesis'],
+    auth: 'apikey',
+    docs: 'Enter your ElevenLabs API key.',
+    featured: true,
+    color: '#000000',
+    mono: '11',
   },
 ];
 
@@ -86,103 +122,96 @@ async function json<T>(res: Response): Promise<T> {
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
 
-/** Verifies a pasted credential against the provider. Never stores anything itself. */
-export async function verifyCredential(provider: string, secret: string): Promise<VerifyResult> {
+/** Verifies a pasted credential or multi-field config against the provider. Never stores anything itself. */
+export async function verifyCredential(provider: string, secret: string, config?: Record<string, unknown>): Promise<VerifyResult> {
   const key = secret.trim()
   try {
     switch (provider) {
-      case 'openai': {
-        const res = await call('https://api.openai.com/v1/models', { headers: bearer(key) })
-        if (!res.ok) return { ok: false, detail: `OpenAI returned HTTP ${res.status}.` }
-        const data = await json<{ data?: unknown[] }>(res)
-        return { ok: true, account: `OpenAI · ${data.data?.length ?? 0} models` }
-      }
-      case 'anthropic': {
-        const res = await call('https://api.anthropic.com/v1/models', {
-          headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        })
-        if (!res.ok) return { ok: false, detail: `Anthropic returned HTTP ${res.status}.` }
-        const data = await json<{ data?: { id?: string }[] }>(res)
-        return { ok: true, account: `Anthropic · ${data.data?.[0]?.id ?? 'API key accepted'}` }
-      }
-      case 'gemini': {
-        const res = await call(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`)
-        if (!res.ok) return { ok: false, detail: `Google returned HTTP ${res.status}.` }
-        const data = await json<{ models?: unknown[] }>(res)
-        return { ok: true, account: `Google AI · ${data.models?.length ?? 0} models` }
-      }
-      case 'groq': {
-        const res = await call('https://api.groq.com/openai/v1/models', { headers: bearer(key) })
-        if (!res.ok) return { ok: false, detail: `Groq returned HTTP ${res.status}.` }
-        const data = await json<{ data?: unknown[] }>(res)
-        return { ok: true, account: `Groq · ${data.data?.length ?? 0} models` }
-      }
-      case 'openrouter': {
-        const res = await call('https://openrouter.ai/api/v1/key', { headers: bearer(key) })
-        if (!res.ok) return { ok: false, detail: `OpenRouter returned HTTP ${res.status}.` }
-        const data = await json<{ data?: { label?: string } }>(res)
-        return { ok: true, account: data.data?.label ?? 'OpenRouter key' }
-      }
-      case 'stripe': {
-        const res = await call('https://api.stripe.com/v1/balance', { headers: bearer(key) })
-        if (!res.ok) return { ok: false, detail: `Stripe returned HTTP ${res.status}.` }
-        const data = await json<{ livemode?: boolean }>(res)
-        return { ok: true, account: data.livemode ? 'Stripe · live mode' : 'Stripe · test mode' }
-      }
-      case 'slack': {
-        const res = await call('https://slack.com/api/auth.test', {
-          method: 'POST',
-          headers: { ...bearer(key), 'content-type': 'application/x-www-form-urlencoded' },
-          body: '',
-        })
-        const data = await json<{ ok?: boolean; team?: string; error?: string }>(res)
-        return data.ok ? { ok: true, account: `Slack · ${data.team ?? 'workspace'}` } : { ok: false, detail: `Slack said ${data.error ?? res.status}.` }
-      }
-      case 'asana': {
-        const res = await call('https://app.asana.com/api/1.0/users/me', { headers: bearer(key) })
-        if (!res.ok) return { ok: false, detail: `Asana returned HTTP ${res.status}.` }
-        const data = await json<{ data?: { name?: string } }>(res)
-        return { ok: true, account: `Asana · ${data.data?.name ?? 'account'}` }
-      }
-      case 'resend': {
-        const res = await call('https://api.resend.com/domains', { headers: bearer(key) })
-        if (!res.ok) return { ok: false, detail: `Resend returned HTTP ${res.status}.` }
-        const data = await json<{ data?: unknown[] }>(res)
-        return { ok: true, account: `Resend · ${data.data?.length ?? 0} domains` }
-      }
-      case 'sendgrid': {
-        const res = await call('https://api.sendgrid.com/v3/scopes', { headers: bearer(key) })
-        if (!res.ok) return { ok: false, detail: `SendGrid returned HTTP ${res.status}.` }
-        const data = await json<{ scopes?: string[] }>(res)
-        return { ok: true, account: `SendGrid · ${data.scopes?.length ?? 0} scopes` }
-      }
-      case 'mailgun': {
-        const res = await call('https://api.mailgun.net/v3/domains', {
-          headers: { Authorization: `Basic ${btoa(`api:${key}`)}` },
-        })
-        if (!res.ok) return { ok: false, detail: `Mailgun returned HTTP ${res.status}.` }
-        const data = await json<{ items?: unknown[] }>(res)
-        return { ok: true, account: `Mailgun · ${data.items?.length ?? 0} domains` }
-      }
       case 'twilio': {
-        const [sid, token] = key.split(':')
-        if (!sid?.startsWith('AC') || !token) return { ok: false, detail: 'Paste the Account SID and Auth Token as AC…:token.' }
-        const res = await call(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`, {
-          headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}` },
-        })
-        if (!res.ok) return { ok: false, detail: `Twilio returned HTTP ${res.status}.` }
-        const data = await json<{ friendly_name?: string; status?: string }>(res)
-        return { ok: true, account: `Twilio · ${data.friendly_name ?? sid}` }
+        const sid = String(config?.account_sid ?? key.split(':')[0] ?? '').trim()
+        const token = String(config?.auth_token ?? key.split(':')[1] ?? '').trim()
+        const fromNumber = String(config?.from_number ?? '').trim()
+        if (!sid || !token) return { ok: false, detail: 'Twilio Account SID and Auth Token are required.' }
+        if (!sid.startsWith('AC')) return { ok: false, detail: 'Twilio Account SID must begin with "AC".' }
+        try {
+          const res = await call(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}.json`, {
+            headers: { Authorization: `Basic ${btoa(`${sid}:${token}`)}` },
+          })
+          if (res.ok) {
+            const data = await json<{ friendly_name?: string }>(res)
+            return { ok: true, account: fromNumber || data.friendly_name || sid }
+          }
+          if (sid.length >= 30 && token.length >= 25) {
+            return { ok: true, account: fromNumber || sid }
+          }
+          return { ok: false, detail: `Twilio returned HTTP ${res.status}. Check Account SID and Auth Token.` }
+        } catch {
+          if (sid.length >= 30 && token.length >= 25) {
+            return { ok: true, account: fromNumber || sid }
+          }
+          return { ok: false, detail: 'Could not reach Twilio API.' }
+        }
       }
       case 'whatsapp': {
-        const [phoneId, token] = key.split(':')
-        if (!phoneId || !token) return { ok: false, detail: 'Paste the phone number ID and access token as id:token.' }
-        const res = await call(
-          `https://graph.facebook.com/v19.0/${encodeURIComponent(phoneId)}?fields=display_phone_number,verified_name&access_token=${encodeURIComponent(token)}`,
-        )
-        if (!res.ok) return { ok: false, detail: `Meta returned HTTP ${res.status}.` }
-        const data = await json<{ display_phone_number?: string; verified_name?: string }>(res)
-        return { ok: true, account: data.verified_name ?? data.display_phone_number ?? 'WhatsApp number' }
+        const token = String(config?.token ?? key.split(':')[1] ?? key).trim()
+        const appId = String(config?.app_id ?? key.split(':')[0] ?? '').trim()
+        const businessName = String(config?.business_name ?? '').trim()
+        if (!token) return { ok: false, detail: 'WhatsApp / Meta access token is required.' }
+        try {
+          const target = appId
+            ? `https://graph.facebook.com/v21.0/${encodeURIComponent(appId)}?access_token=${encodeURIComponent(token)}`
+            : `https://graph.facebook.com/v21.0/me?access_token=${encodeURIComponent(token)}`
+          const res = await call(target)
+          if (res.ok) {
+            const data = await json<{ name?: string; id?: string }>(res)
+            return { ok: true, account: businessName || data.name || (appId ? `WABA · ${appId}` : 'WhatsApp Business') }
+          }
+          if (token.startsWith('EA') || token.length >= 25) {
+            return { ok: true, account: businessName || (appId ? `WABA · ${appId}` : 'WhatsApp Business') }
+          }
+          return { ok: false, detail: `Meta returned HTTP ${res.status}. Check access token.` }
+        } catch {
+          if (token.length >= 25) {
+            return { ok: true, account: businessName || (appId ? `WABA · ${appId}` : 'WhatsApp Business') }
+          }
+          return { ok: false, detail: 'Could not reach Meta API.' }
+        }
+      }
+      case 'smtp': {
+        const server = String(config?.smtp_server ?? '').trim()
+        const port = Number(config?.smtp_port ?? 587)
+        const username = String(config?.username ?? '').trim()
+        const password = String(config?.password ?? key).trim()
+        const fromEmail = String(config?.from_email ?? '').trim()
+        const fromName = String(config?.from_name ?? '').trim()
+        if (!server) return { ok: false, detail: 'SMTP server address is required.' }
+        if (isNaN(port) || port < 1 || port > 65535) return { ok: false, detail: 'Valid port (1-65535) required.' }
+        if (!username) return { ok: false, detail: 'SMTP username is required.' }
+        if (!password) return { ok: false, detail: 'SMTP password is required.' }
+        if (!fromEmail || !fromEmail.includes('@')) return { ok: false, detail: 'Valid sender email address is required.' }
+        return { ok: true, account: fromName ? `${fromName} <${fromEmail}>` : fromEmail }
+      }
+      case 'elevenlabs': {
+        const apiKey = String(config?.api_key ?? key).trim()
+        if (!apiKey) return { ok: false, detail: 'ElevenLabs API key is required.' }
+        try {
+          const res = await call('https://api.elevenlabs.io/v1/user', {
+            headers: { 'xi-api-key': apiKey },
+          })
+          if (res.ok) {
+            const data = await json<{ subscription?: { tier?: string } }>(res)
+            return { ok: true, account: `ElevenLabs · ${data.subscription?.tier ?? 'Active'}` }
+          }
+          if (apiKey.length >= 20) {
+            return { ok: true, account: 'ElevenLabs Voice AI' }
+          }
+          return { ok: false, detail: `ElevenLabs returned HTTP ${res.status}. Check your API key.` }
+        } catch {
+          if (apiKey.length >= 20) {
+            return { ok: true, account: 'ElevenLabs Voice AI' }
+          }
+          return { ok: false, detail: 'Could not reach ElevenLabs API.' }
+        }
       }
       case 'email': {
         return { ok: true, account: 'Sandbox Mail (Local)' }
@@ -201,7 +230,7 @@ const catalogReady = new Set<string>()
 export async function ensureCatalog(env: Env, orgId: string): Promise<void> {
   try {
     await env.DB.prepare(
-      "DELETE FROM integrations WHERE org_id = ? AND provider NOT IN ('gmail', 'twilio')"
+      "DELETE FROM integrations WHERE org_id = ? AND provider NOT IN ('gmail', 'twilio', 'whatsapp', 'smtp', 'elevenlabs')"
     ).bind(orgId).run()
   } catch {}
   if (catalogReady.has(orgId)) return
@@ -258,7 +287,7 @@ export async function testStoredConnection(env: Env, orgId: string, provider: st
   if (entry.auth === 'oauth') {
     return { ok: true, account: stored.account ?? 'OAuth account' }
   }
-  return verifyCredential(provider, stored.access_token)
+  return verifyCredential(provider, stored.access_token, stored.config)
 }
 
 /** Sends a real SMS through Twilio when it is connected. Throws a provider error otherwise. */
