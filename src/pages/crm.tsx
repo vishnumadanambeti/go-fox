@@ -29,6 +29,7 @@ import {
   Plus,
   Puzzle,
   RefreshCw,
+  Search,
   Send,
   Settings2,
   Share2,
