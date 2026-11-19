@@ -67,7 +67,7 @@ import {
   RefreshCw,
   TrendingUp,
 } from 'lucide-react'
-import { patch, post, type Row } from '../lib/api'
+import { del, patch, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
 import { Badge, Button, Drawer, FormRow, Modal, Spinner, cx } from '../components/ui'
 import { useNavigate } from '../lib/router'
@@ -909,6 +909,23 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={async () => {
+              if (!window.confirm(`Are you sure you want to delete workflow "${String(workflow.name)}"?`)) return
+              try {
+                await del(`/api/resources/workflows/${id}`)
+                toast('Workflow deleted successfully.', 'good')
+                navigate('/marketing/workflows')
+              } catch (err: any) {
+                toast(err?.message ?? 'Could not delete workflow.', 'bad')
+              }
+            }}
+            title="Delete this workflow"
+          >
+            <Trash2 size={13} /> <span className="hidden sm:inline">Delete</span>
+          </Button>
           <Button size="sm" variant="default" onClick={() => setRunsOpen(true)} title="Execution history">
             <ListOrderedIcon /> <span className="hidden sm:inline">Runs ({runs.length})</span>
           </Button>

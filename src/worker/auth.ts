@@ -34,9 +34,9 @@ const ROLE_PERMS: Record<Role, string[]> = {
     'crm.write', 'marketing.write', 'sales.write', 'support.write', 'workflows.write',
     'data.delete', 'data.export', 'audit.read', 'ai.use',
   ],
-  sales: ['crm.write', 'sales.write', 'workflows.write', 'ai.use'],
-  marketer: ['crm.write', 'marketing.write', 'workflows.write', 'ai.use'],
-  support: ['crm.write', 'support.write', 'ai.use'],
+  sales: ['crm.write', 'sales.write', 'workflows.write', 'data.delete', 'ai.use'],
+  marketer: ['crm.write', 'marketing.write', 'workflows.write', 'data.delete', 'ai.use'],
+  support: ['crm.write', 'support.write', 'data.delete', 'ai.use'],
 }
 
 export function can(role: Role, permission: string): boolean {

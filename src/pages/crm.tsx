@@ -1886,17 +1886,156 @@ export function AddContactDrawer({
       subtitle="Complete CRM contact profile with structured sections"
       wide
       footer={
-        <>
-          <Button size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button size="sm" variant="primary" onClick={() => void save()} loading={busy}>
-            {record ? 'Save Changes' : 'Create Contact'}
-          </Button>
-        </>
+        <div className="flex w-full items-center justify-between">
+          <span className="text-[11.5px] text-faint">Fields marked * are required</span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => void save()} loading={busy}>
+              {record ? 'Save Changes' : 'Create contact →'}
+            </Button>
+          </div>
+        </div>
       }
     >
       <div className="space-y-4 text-[13px]">
+        {/* Basic Info Orange Header Banner matching Competitor Screenshot 5 */}
+        <div className="rounded-xl overflow-hidden border border-line bg-surface">
+          <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2.5 text-white flex items-center gap-2 shadow-xs">
+            <User size={15} />
+            <span className="font-bold text-[13px] tracking-wide">Basic Info</span>
+          </div>
+          <div className="p-4 space-y-4">
+            {/* Profile photo upload matching Screenshot 5 */}
+            <div className="flex items-center justify-between p-3 rounded-xl border border-line bg-surface-2/40">
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 font-bold text-sm">
+                  {form.first_name ? form.first_name.slice(0, 2).toUpperCase() : 'CO'}
+                </div>
+                <div>
+                  <div className="text-[12px] font-semibold text-ink">Profile photo</div>
+                  <div className="text-[11px] text-muted">JPG, PNG, GIF or WebP · max 2 MB</div>
+                </div>
+              </div>
+              <label className="cursor-pointer rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-orange-700 transition">
+                <Upload size={12} className="inline mr-1.5" />
+                <span>Upload photo</span>
+                <input type="file" className="hidden" accept="image/*" onChange={() => toast('Photo uploaded.', 'good')} />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormRow label="First Name *">
+                <input
+                  className="gx-input"
+                  placeholder="e.g. Jane"
+                  value={form.first_name}
+                  onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                  required
+                />
+              </FormRow>
+              <FormRow label="Last Name">
+                <input
+                  className="gx-input"
+                  placeholder="e.g. Doe"
+                  value={form.last_name}
+                  onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                />
+              </FormRow>
+              <FormRow label="Designation">
+                <input
+                  className="gx-input"
+                  placeholder="e.g. Head of Sales"
+                  value={form.designation}
+                  onChange={(e) => setForm({ ...form, designation: e.target.value })}
+                />
+              </FormRow>
+              <FormRow label="Company Name">
+                <input
+                  className="gx-input"
+                  placeholder="e.g. gofox.io or GoFox"
+                  value={form.company_name ?? ''}
+                  onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+                />
+              </FormRow>
+              <div className="sm:col-span-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[12px] font-semibold text-ink">Email *</label>
+                  <label className="flex items-center gap-1.5 text-[11px] text-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.email_opt_out)}
+                      onChange={(e) => setForm({ ...form, email_opt_out: e.target.checked ? 1 : 0 })}
+                      className="rounded border-line"
+                    />
+                    <span>Email Opt Out</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <select className="gx-select">
+                    <option>Primary</option>
+                    <option>Work</option>
+                    <option>Personal</option>
+                  </select>
+                  <input
+                    className="gx-input col-span-2"
+                    type="email"
+                    placeholder="name@gofox.io"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-[12px] font-semibold text-ink">Phone</label>
+                <div className="grid grid-cols-4 gap-2">
+                  <select className="gx-select">
+                    <option>Work</option>
+                    <option>Mobile</option>
+                    <option>Direct</option>
+                  </select>
+                  <input
+                    className="gx-input col-span-2"
+                    type="tel"
+                    placeholder="+91 Enter phone number"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  />
+                  <input
+                    className="gx-input"
+                    placeholder="Ext"
+                    value={form.phone_ext ?? ''}
+                    onChange={(e) => setForm({ ...form, phone_ext: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <FormRow label="Tags">
+                  <input
+                    className="gx-input"
+                    placeholder="Type a tag and press Enter"
+                    value={form.tags}
+                    onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                  />
+                </FormRow>
+              </div>
+              <div className="sm:col-span-2 pt-2 border-t border-line">
+                <div className="text-[11.5px] font-bold uppercase tracking-wider text-faint mb-2">Custom fields</div>
+                <FormRow label="Annual Salary">
+                  <input
+                    className="gx-input"
+                    placeholder="$120,000"
+                    value={form.annual_salary ?? ''}
+                    onChange={(e) => setForm({ ...form, annual_salary: e.target.value })}
+                  />
+                </FormRow>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Section Navigation Tabs (Page 10) */}
         <div className="flex border-b border-line pb-1 gap-2">
           {[
@@ -3659,10 +3798,11 @@ export function ListDetailPage({ id }: { id: string }) {
   const [selected, setSelected] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState('')
+  const [contactSearch, setContactSearch] = useState('')
 
   const list = useFetch<{ record: Row }>(`/api/resources/lists/${id}`)
   const members = useFetch<{ data: Row[]; total: number }>(`/api/lists/${id}/members`)
-  const contacts = useFetch<{ data: Row[] }>('/api/resources/contacts?limit=100&sort=first_name&dir=asc')
+  const contacts = useFetch<{ data: Row[] }>('/api/resources/contacts?limit=250&sort=first_name&dir=asc')
 
   if (list.loading || members.loading) return <Spinner label="Loading audience list…" />
   if (list.error || !list.data) return <div className="p-5 text-sm text-danger">List not found.</div>
@@ -3805,55 +3945,102 @@ export function ListDetailPage({ id }: { id: string }) {
         )}
       </div>
 
-      <Drawer
+      <Modal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        title="Add contacts to this list"
-        subtitle="Only contacts in this workspace can be added"
+        title="Add contacts to list"
         footer={
-          <>
-            <Button size="sm" onClick={() => setAddOpen(false)}>
+          <div className="flex w-full items-center justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setAddOpen(false)}>
               Cancel
             </Button>
             <Button size="sm" variant="primary" onClick={() => void add()} loading={busy} disabled={!selected.length}>
-              Add {selected.length || ''} Contacts
+              Add {selected.length ? `(${selected.length})` : ''}
             </Button>
-          </>
+          </div>
         }
       >
-        <div className="space-y-1">
-          {(contacts.data?.data ?? []).map((contact) => {
-            const already = (members.data?.data ?? []).some((m) => m.id === contact.id)
+        <div className="space-y-3">
+          {/* Search box matching Screenshot 6 */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-2.5 text-muted pointer-events-none" />
+            <input
+              className="gx-input pl-9 text-[12.5px] w-full"
+              placeholder="Search contacts..."
+              value={contactSearch}
+              onChange={(e) => setContactSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Availability and Select All Header */}
+          {(() => {
+            const memberIds = new Set((members.data?.data ?? []).map((m) => m.id))
+            const available = (contacts.data?.data ?? []).filter((c) => {
+              if (memberIds.has(c.id)) return false
+              if (!contactSearch.trim()) return true
+              const term = contactSearch.toLowerCase()
+              return (
+                String(c.first_name ?? '').toLowerCase().includes(term) ||
+                String(c.last_name ?? '').toLowerCase().includes(term) ||
+                String(c.email ?? '').toLowerCase().includes(term)
+              )
+            })
+            const allSelected = available.length > 0 && available.every((c) => selected.includes(c.id))
+
             return (
-              <label
-                key={contact.id}
-                className={cx(
-                  'flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px]',
-                  already ? 'opacity-50' : 'hover:bg-surface-2 cursor-pointer'
-                )}
-              >
-                <input
-                  type="checkbox"
-                  className="size-3.5 accent-[var(--color-accent)]"
-                  disabled={already}
-                  checked={selected.includes(contact.id)}
-                  onChange={(event) =>
-                    setSelected((current) => (event.target.checked ? [...current, contact.id] : current.filter((v) => v !== contact.id)))
-                  }
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">
-                    {contact.first_name} {contact.last_name}
-                  </span>
-                  <span className="block truncate text-[11px] text-muted">{contact.email}</span>
-                </span>
-                {Number(contact.email_opt_out) === 1 ? <Badge tone="danger">Opt-Out</Badge> : null}
-                {already ? <Badge>In List</Badge> : null}
-              </label>
+              <>
+                <div className="flex items-center justify-between text-[12px] text-muted border-b border-line pb-2 px-1">
+                  <span>{available.length} contacts available</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (allSelected) {
+                        setSelected([])
+                      } else {
+                        setSelected(available.map((c) => c.id))
+                      }
+                    }}
+                    className="text-accent hover:underline font-semibold text-[11.5px]"
+                  >
+                    {allSelected ? 'Deselect all' : 'Select all'}
+                  </button>
+                </div>
+
+                <div className="max-h-72 overflow-y-auto gx-scroll space-y-1 divide-y divide-line/40">
+                  {available.map((contact) => (
+                    <label
+                      key={contact.id}
+                      className="flex items-center gap-3 rounded-lg px-2 py-2 text-[12.5px] hover:bg-surface-2 cursor-pointer transition"
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-3.5 accent-[var(--color-accent)] rounded"
+                        checked={selected.includes(contact.id)}
+                        onChange={(event) =>
+                          setSelected((current) =>
+                            event.target.checked ? [...current, contact.id] : current.filter((v) => v !== contact.id)
+                          )
+                        }
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-ink">
+                          {contact.first_name} {contact.last_name}
+                        </span>
+                        <span className="block truncate text-[11px] text-muted">{contact.email}</span>
+                      </span>
+                    </label>
+                  ))}
+                  {available.length === 0 ? (
+                    <div className="py-8 text-center text-[12px] text-muted">
+                      No matching contacts available to add.
+                    </div>
+                  ) : null}
+                </div>
+              </>
             )
-          })}
+          })()}
         </div>
-      </Drawer>
+      </Modal>
     </div>
   )
 }

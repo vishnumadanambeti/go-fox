@@ -698,8 +698,9 @@ app.post('/api/resources/:entity/bulk', async (c) => {
   const ids = Array.isArray(body.ids) ? body.ids.filter(Boolean) : []
   if (!ids.length) return fail(c, 'VALIDATION_ERROR', 'No records selected.', 422)
 
-  const denied = requirePerm(c, body.action === 'delete' ? (def.softDelete ? 'data.delete' : def.permission) : def.permission)
-  if (denied) return denied
+  if (!can(user.role, 'data.delete') && !can(user.role, def.permission)) {
+    return fail(c, 'FORBIDDEN', `Permission denied (requires ${def.permission} or data.delete).`, 403)
+  }
 
   const placeholders = ids.map(() => '?').join(', ')
   const now = nowIso()
@@ -818,8 +819,9 @@ app.delete('/api/resources/:entity/:id', async (c) => {
   const user = c.get('user')
   const def = loadEntity(c.req.param("entity"))
   if (!def) return fail(c, 'NOT_FOUND', 'Unknown resource.', 404)
-  const denied = requirePerm(c, def.softDelete ? 'data.delete' : def.permission)
-  if (denied) return denied
+  if (!can(user.role, 'data.delete') && !can(user.role, def.permission)) {
+    return fail(c, 'FORBIDDEN', `Permission denied (requires ${def.permission} or data.delete).`, 403)
+  }
   const id = c.req.param('id')
   const hard = c.req.query('hard') === '1' && can(user.role, 'data.delete')
   if (def.softDelete) {

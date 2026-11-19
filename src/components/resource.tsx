@@ -86,16 +86,33 @@ export function FieldValue({ entity, field, value, maxChars }: { entity: string;
   if (BOOL_KEYS.has(field)) return value ? <Badge tone="warn">Yes</Badge> : <Badge>No</Badge>
   if (field === 'tags' && typeof value === 'string') {
     return (
-      <span className="flex flex-wrap gap-1">
+      <span className="flex flex-wrap gap-1.5">
         {value
           .split(',')
           .filter(Boolean)
           .slice(0, 3)
-          .map((tag) => (
-            <span key={tag} className="gx-badge">
-              {tag.trim()}
-            </span>
-          ))}
+          .map((rawTag) => {
+            const tag = rawTag.trim()
+            const lower = tag.toLowerCase()
+            let tone = 'bg-surface-2 text-ink border-line'
+            if (lower.includes('close') || lower.includes('urgent') || lower.includes('lost') || lower.includes('hot')) {
+              tone = 'bg-rose-500/10 text-rose-700 border-rose-500/20 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
+            } else if (lower.includes('created') || lower.includes('pending') || lower.includes('follow') || lower.includes('warm')) {
+              tone = 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60'
+            } else if (lower.includes('qualif') || lower.includes('won') || lower.includes('active') || lower.includes('customer')) {
+              tone = 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
+            } else if (lower.includes('new') || lower.includes('lead') || lower.includes('prospect')) {
+              tone = 'bg-blue-500/10 text-blue-700 border-blue-500/20 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/60'
+            }
+            return (
+              <span
+                key={tag}
+                className={cx('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border shadow-2xs', tone)}
+              >
+                {tag}
+              </span>
+            )
+          })}
       </span>
     )
   }
@@ -472,6 +489,7 @@ export function ResourcePage({
 
   const handleBulkDelete = async () => {
     if (!selected.size) return
+    if (!window.confirm(`Are you sure you want to delete ${selected.size} selected ${def.label.toLowerCase()}?`)) return
     setBusy(true)
     try {
       await post(`/api/resources/${entity}/bulk`, { action: 'delete', ids: Array.from(selected) })
@@ -691,7 +709,35 @@ export function ResourcePage({
             </div>
           ) : null}
 
-          {selected.size ? <span className="text-[11.5px] font-medium text-accent">{selected.size} selected</span> : null}
+          {selected.size ? (
+            <div className="flex items-center gap-2 pl-2 border-l border-line animate-fade-in">
+              <span className="text-[12px] font-semibold text-accent">{selected.size} selected</span>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => void handleBulkDelete()}
+                loading={busy}
+                title="Delete selected records"
+              >
+                <Trash2 size={12} /> Delete Selected
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setTagModalOpen(true)}
+                title="Add tag"
+              >
+                <Tag size={12} /> Tag
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelected(new Set())}
+                title="Deselect all"
+              >
+                Clear
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -765,13 +811,26 @@ export function ResourcePage({
                     <td key={key} className={index === 0 ? 'font-medium' : ''}>
                       {index === 0 && AVATAR_ENTITIES.has(entity) ? (
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent-soft text-[10.5px] font-semibold uppercase text-accent">
+                          <span
+                            className={cx(
+                              'grid size-7 shrink-0 place-items-center rounded-full text-[10.5px] font-bold uppercase shadow-2xs',
+                              [
+                                'bg-blue-500/15 text-blue-600 dark:bg-blue-500/25 dark:text-blue-300',
+                                'bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-300',
+                                'bg-purple-500/15 text-purple-600 dark:bg-purple-500/25 dark:text-purple-300',
+                                'bg-amber-500/15 text-amber-600 dark:bg-amber-500/25 dark:text-amber-300',
+                                'bg-rose-500/15 text-rose-600 dark:bg-rose-500/25 dark:text-rose-300',
+                              ][Math.abs(row.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 5]
+                            )}
+                          >
                             {initials(String(row[key] ?? '')) || '–'}
                           </span>
                           <div className="min-w-0">
                             <FieldValue entity={entity} field={key} value={row[key]} maxChars={40} />
-                            {row.domain && key === 'name' ? (
-                              <div className="text-[11px] text-muted truncate">{String(row.domain)}</div>
+                            {row.designation || row.company_name || row.domain ? (
+                              <div className="text-[11px] text-muted truncate">
+                                {String(row.designation ?? row.company_name ?? row.domain)}
+                              </div>
                             ) : null}
                           </div>
                         </div>
@@ -780,14 +839,33 @@ export function ResourcePage({
                       )}
                     </td>
                   ))}
-                  <td onClick={(event) => event.stopPropagation()}>
-                    <Dropdown
-                      trigger={({ toggle }) => (
-                        <IconButton label="Row actions" onClick={toggle}>
-                          <MoreHorizontal size={15} />
-                        </IconButton>
-                      )}
-                    >
+                  <td onClick={(event) => event.stopPropagation()} className="whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1">
+                      {row.email ? (
+                        <a
+                          href={`mailto:${row.email}`}
+                          className="flex size-6 items-center justify-center rounded text-muted hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-surface-2 transition-colors"
+                          title={`Email ${row.email}`}
+                        >
+                          <Mail size={12} />
+                        </a>
+                      ) : null}
+                      {row.phone ? (
+                        <a
+                          href={`tel:${row.phone}`}
+                          className="flex size-6 items-center justify-center rounded text-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-surface-2 transition-colors"
+                          title={`Call ${row.phone}`}
+                        >
+                          <Phone size={12} />
+                        </a>
+                      ) : null}
+                      <Dropdown
+                        trigger={({ toggle }) => (
+                          <IconButton label="Row actions" onClick={toggle}>
+                            <MoreHorizontal size={14} />
+                          </IconButton>
+                        )}
+                      >
                       {(close) => (
                         <>
                           {def.detailPath ? (
@@ -821,6 +899,7 @@ export function ResourcePage({
                         </>
                       )}
                     </Dropdown>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -904,7 +983,7 @@ export function ResourcePage({
 
       {/* Floating Bulk Actions Bar */}
       {selected.size > 0 ? (
-        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 shadow-2xl animate-fade-in text-[12.5px]">
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 shadow-2xl animate-fade-in text-[12.5px]">
           <span className="font-semibold text-ink whitespace-nowrap">{selected.size} selected</span>
           <span className="h-4 w-px bg-line" />
           <Button

@@ -150,7 +150,17 @@ function WorkspaceRoutes({ path }: { path: string }) {
   const param = (pattern: string) => matchPath(pattern, path)
 
   // Short links people type or bookmark. They render the canonical page at its canonical URL.
-  const alias: Record<string, string> = { '/deals': '/sales/deals', '/tasks': '/sales/tasks', '/apps': '/settings/apps' }
+  const alias: Record<string, string> = {
+    '/deals': '/sales/deals',
+    '/tasks': '/sales/tasks',
+    '/apps': '/settings/apps',
+    '/crm/contact-list': '/contacts',
+    '/contact-list': '/contacts',
+    '/leads-list': '/leads',
+    '/crm/leads-list': '/leads',
+    '/crm/leads': '/leads',
+    '/crm/contacts': '/contacts',
+  }
   if (alias[path]) {
     return <Redirect to={alias[path]} />
   }

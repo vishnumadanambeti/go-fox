@@ -50,7 +50,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { patch, post, type Row } from '../lib/api'
+import { del, patch, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
 import { Link, useNavigate } from '../lib/router'
 import { formatDate, formatDateTime, number, titleCase } from '../lib/format'
@@ -160,11 +160,24 @@ export function CampaignsPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this campaign?')) return
     try {
-      await post(`/api/resources/campaigns/${id}`, { deleted_at: new Date().toISOString() })
-      toast('Campaign moved to trash.', 'good')
+      await del(`/api/resources/campaigns/${id}`)
+      toast('Campaign deleted successfully.', 'good')
       reload()
-    } catch {
-      toast('Failed to delete campaign.', 'bad')
+    } catch (err: any) {
+      toast(err?.message ?? 'Failed to delete campaign.', 'bad')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.size) return
+    if (!window.confirm(`Delete ${selectedIds.size} selected campaign(s)?`)) return
+    try {
+      await post('/api/resources/campaigns/bulk', { action: 'delete', ids: Array.from(selectedIds) })
+      toast(`${selectedIds.size} campaign(s) deleted.`, 'good')
+      setSelectedIds(new Set())
+      reload()
+    } catch (err: any) {
+      toast(err?.message ?? 'Failed to delete campaigns.', 'bad')
     }
   }
 
@@ -334,6 +347,32 @@ export function CampaignsPage() {
             <span>Create campaign</span>
           </button>
         </div>
+
+        {/* Bulk Action Bar */}
+        {selectedIds.size > 0 ? (
+          <div className="mt-3 flex items-center justify-between rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-[12.5px]">
+            <span className="font-semibold text-orange-700 dark:text-orange-400">
+              {selectedIds.size} campaign{selectedIds.size === 1 ? '' : 's'} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="px-2.5 py-1 text-xs text-muted hover:text-ink font-medium"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleBulkDelete()}
+                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-red-700 transition"
+              >
+                <Trash2 size={12} />
+                <span>Delete Selected</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {/* Content Area: Table vs Empty State */}
         <div className="mt-4">
@@ -1918,6 +1957,23 @@ export function CampaignDetailPage({ id }: { id: string }) {
               className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-surface-2 hover:text-ink"
             >
               Back to campaigns
+            </button>
+            <button
+              onClick={async () => {
+                if (!window.confirm(`Delete campaign "${c.name}"?`)) return
+                try {
+                  await del(`/api/resources/campaigns/${c.id}`)
+                  toast('Campaign deleted successfully.', 'good')
+                  navigate('/marketing/campaigns')
+                } catch (err: any) {
+                  toast(err?.message ?? 'Failed to delete campaign.', 'bad')
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-600 hover:bg-red-500/20 dark:text-red-400 transition"
+              title="Delete campaign"
+            >
+              <Trash2 size={13} />
+              <span>Delete</span>
             </button>
           </div>
         </div>

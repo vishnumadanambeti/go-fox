@@ -14,11 +14,12 @@ import {
   Search,
   ShieldCheck,
   Terminal,
+  Trash2,
   Workflow as WorkflowIcon,
   XCircle,
   Zap,
 } from 'lucide-react'
-import { post, type Row } from '../lib/api'
+import { del, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
 import { Link, useNavigate } from '../lib/router'
 import { formatDateTime } from '../lib/format'
@@ -300,6 +301,21 @@ export function WorkflowsPage({ module }: { module?: string }) {
     }
   }
 
+  const deleteWorkflow = async (workflow: Row) => {
+    if (!window.confirm(`Are you sure you want to delete workflow "${workflow.name}"?`)) return
+    setBusyId(`del-${workflow.id}`)
+    try {
+      await del(`/api/resources/workflows/${workflow.id}`)
+      toast(`Workflow "${workflow.name}" deleted successfully.`, 'good')
+      reload()
+      refreshMeta()
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not delete workflow.', 'bad')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-canvas">
       <PageHeader
@@ -507,6 +523,15 @@ export function WorkflowsPage({ module }: { module?: string }) {
                           title="Duplicate flow"
                         >
                           <Copy size={11} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => void deleteWorkflow(workflow)}
+                          loading={busyId === `del-${workflow.id}`}
+                          title="Delete workflow"
+                        >
+                          <Trash2 size={11} />
                         </Button>
                         <Link to={`/marketing/workflows/${workflow.id}`}>
                           <Button size="sm" variant="primary">
