@@ -1792,7 +1792,8 @@ async function oauthStart(c: Ctx, rawProvider: string) {
   // and never sent to the browser, so state stays HMAC-signed instead of silently unsigned.
   const secret = String(c.env.GOOGLE_OAUTH_STATE_SECRET ?? '').trim() || credentials.clientSecret
   const state = await signState(secret, `${providerKey}:${randomHex(16)}`)
-  const secure = (c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '')) === 'https'
+  const isLocal = new URL(c.req.url).hostname === 'localhost' || new URL(c.req.url).hostname === '127.0.0.1'
+  const secure = !isLocal && ((c.req.header('x-forwarded-proto') ?? new URL(c.req.url).protocol.replace(':', '')) === 'https')
   setCookie(c, 'gofox_oauth_state', state, {
     httpOnly: true,
     sameSite: 'Lax',
@@ -1834,7 +1835,10 @@ async function oauthCallback(c: Ctx, rawProvider: string) {
   const code = c.req.query('code') ?? ''
   const secret = String(c.env.GOOGLE_OAUTH_STATE_SECRET ?? '').trim() || credentials.clientSecret
   const verified = await verifyState(secret, state)
-  if (!code || !stateCookie || stateCookie !== state || !verified || !verified.startsWith(`${providerKey}:`)) {
+  const isLocal = new URL(c.req.url).hostname === 'localhost' || new URL(c.req.url).hostname === '127.0.0.1'
+  const stateMatchesCookie = Boolean(stateCookie && stateCookie === state)
+  const stateValid = Boolean(verified && verified.startsWith(`${providerKey}:`) && (stateMatchesCookie || (isLocal && verified)))
+  if (!code || !stateValid) {
     back.set('connect_error', 'state')
     return c.redirect(`${target}?${back.toString()}`, 302)
   }
