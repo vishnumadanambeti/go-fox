@@ -240,6 +240,53 @@ export function Modal({
   )
 }
 
+export function ConfirmModal({
+  open,
+  onClose,
+  onConfirm,
+  title = 'Confirm deletion',
+  description = 'Are you sure you want to proceed with this action? It will move items to trash.',
+  confirmText = 'Delete',
+  busy = false,
+  danger = true,
+}: {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void | Promise<void>
+  title?: string
+  description?: ReactNode
+  confirmText?: string
+  busy?: boolean
+  danger?: boolean
+}) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      footer={
+        <>
+          <Button size="sm" variant="default" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant={danger ? 'danger' : 'primary'}
+            onClick={() => void onConfirm()}
+            loading={busy}
+          >
+            {confirmText}
+          </Button>
+        </>
+      }
+    >
+      <div className="py-2 text-[13px] text-muted leading-relaxed">
+        {description}
+      </div>
+    </Modal>
+  )
+}
+
 export function Drawer({
   open,
   onClose,
@@ -558,6 +605,99 @@ export function Kpi({
       {hint ? <div className="mt-0.5 text-[11.5px] text-muted">{hint}</div> : null}
     </div>
   )
+}
+
+export function EnterpriseKpiCard({
+  title,
+  value,
+  change,
+  trend,
+  hint,
+  icon,
+  gradient = 'blue-indigo',
+  to,
+  tooltip,
+  className,
+}: {
+  title: string
+  value: ReactNode
+  change?: string
+  trend?: 'up' | 'down' | 'neutral'
+  hint?: string
+  icon: ReactNode
+  gradient?: 'blue-indigo' | 'indigo-violet' | 'teal-cyan' | 'blue-cyan' | 'coral-violet' | 'emerald-teal'
+  to?: string
+  tooltip?: string
+  className?: string
+}) {
+  const gradientClass = {
+    'blue-indigo': 'from-[#315ef5] to-[#625beb]',
+    'indigo-violet': 'from-[#625beb] to-[#805ad5]',
+    'teal-cyan': 'from-[#0d9488] to-[#0891b2]',
+    'blue-cyan': 'from-[#315ef5] to-[#0891b2]',
+    'coral-violet': 'from-[#f4776b] to-[#805ad5]',
+    'emerald-teal': 'from-[#16a37b] to-[#0d9488]',
+  }[gradient]
+
+  const content = (
+    <div
+      className={cx(
+        'group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-line bg-surface p-4.5 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-md',
+        className,
+      )}
+      title={tooltip}
+    >
+      {/* Subtle top gradient accent glow */}
+      <div className={cx('absolute inset-x-0 top-0 h-[2.5px] bg-gradient-to-r opacity-90', gradientClass)} />
+
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted group-hover:text-ink transition-colors">
+            {title}
+          </span>
+          <div className="mt-2 text-[26px] font-black tracking-tight text-ink">
+            {value}
+          </div>
+        </div>
+        <div
+          className={cx(
+            'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-xs shrink-0',
+            gradientClass,
+          )}
+        >
+          {icon}
+        </div>
+      </div>
+
+      <div className="mt-3.5 flex items-center justify-between border-t border-line/50 pt-2.5 text-[11.5px]">
+        {hint ? <span className="text-muted truncate max-w-[70%]">{hint}</span> : <span />}
+        {change ? (
+          <span
+            className={cx(
+              'inline-flex items-center gap-1 font-semibold rounded-full px-2 py-0.5 text-[10.5px]',
+              trend === 'up'
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : trend === 'down'
+                ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
+                : 'bg-surface-2 text-muted',
+            )}
+          >
+            {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '•'} {change}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
+
+  if (to) {
+    return (
+      <a href={to} className="block focus:outline-none">
+        {content}
+      </a>
+    )
+  }
+
+  return content
 }
 
 export function ConfirmDialog({

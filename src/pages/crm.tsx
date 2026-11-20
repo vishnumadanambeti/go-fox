@@ -1463,23 +1463,6 @@ export function ContactsPage() {
             >
               <Upload size={13} /> Import CSV
             </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                toast('Viewing recent import audit trail in Telemetry.', 'good')
-                navigate('/marketing/automations')
-              }}
-            >
-              <History size={13} /> History
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                toast('Scanning verified contact discoveries across team…', 'good')
-              }}
-            >
-              <Mail size={13} /> Email Discoveries
-            </Button>
           </div>
         }
         onRowClick={(row) => setSelectedId(row.id)}

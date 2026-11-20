@@ -178,6 +178,34 @@ export function AccountSettingsPage() {
                   </td>
                 </tr>
               ))}
+              {(users.data.invitations || []).map((inv) => (
+                <tr key={inv.id} className="hover:bg-surface-2/40 transition bg-amber-50/20 dark:bg-amber-950/10">
+                  <td className="px-4 py-3 font-medium text-ink flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Invited Member</span>
+                  </td>
+                  <td className="px-4 py-3 text-muted">{inv.email}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 text-[11px] font-semibold capitalize">
+                      {inv.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-semibold px-2 py-0.5 text-[11px]">
+                      Pending Invite
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button size="sm" variant="ghost" onClick={async () => {
+                      await del(`/api/resources/invitations/${inv.id}`)
+                      toast('Invitation revoked.', 'good')
+                      users.reload()
+                    }}>
+                      Revoke
+                    </Button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </Card>

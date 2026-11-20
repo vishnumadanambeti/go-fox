@@ -310,7 +310,7 @@ export function DealsPage() {
       { id: 'stage-won', name: 'Closed Won', probability: 100 },
     ]
   }, [meta?.stages])
-  const allDeals = (data?.data ?? []).filter((deal) => deal.status !== 'lost')
+  const allDeals = (data?.data ?? [])
 
   const filteredDeals = allDeals.filter((deal) => {
     const matchesSearch =
@@ -342,7 +342,7 @@ export function DealsPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Deals & Opportunities"
         subtitle={`${data?.total ?? 0} total deals · ${money(filteredDeals.reduce((sum, d) => sum + Number(d.value ?? 0), 0), meta?.currentUser.currency)} pipeline value`}
@@ -412,21 +412,22 @@ export function DealsPage() {
       ) : (
         <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto gx-scroll p-4">
           {/* Competitor PDF Page 39 - Kanban Board with Stage Totals */}
-          <div className="flex min-h-[380px] gap-3.5">
+          <div className="flex min-h-[480px] gap-3.5 pb-4">
             {stages.map((stage, stageIdx) => {
+              const stageName = String(stage.name ?? `Stage ${stageIdx + 1}`)
               const deals = filteredDeals.filter((deal) => {
                 if (deal.stage_id === stage.id) return true
                 if (stageIdx === 0 && (!deal.stage_id || !stages.some((s) => s.id === deal.stage_id))) return true
                 return false
               })
               const value = deals.reduce((sum, deal) => sum + Number(deal.value ?? 0), 0)
-              const isWon = stage.name.toLowerCase().includes('won')
-              const isLost = stage.name.toLowerCase().includes('lost')
+              const isWon = stageName.toLowerCase().includes('won')
+              const isLost = stageName.toLowerCase().includes('lost')
 
               return (
                 <div
                   key={stage.id}
-                  className="flex min-w-[260px] max-w-[320px] flex-1 basis-0 flex-col rounded-xl border border-line bg-surface-2/60 shadow-xs"
+                  className="flex min-w-[280px] max-w-[340px] flex-1 basis-0 flex-col rounded-xl border border-line bg-surface-2/60 shadow-xs"
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => {
                     const id = event.dataTransfer.getData('text/plain')
@@ -439,13 +440,13 @@ export function DealsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className={cx('size-2 rounded-full', isWon ? 'bg-good' : isLost ? 'bg-danger' : 'bg-accent')} />
-                        <span className="text-[13px] font-bold text-ink">{stage.name}</span>
+                        <span className="text-[13px] font-bold text-ink">{stageName}</span>
                       </div>
                       <div className="mt-0.5 text-[11px] font-medium text-muted">
-                        {deals.length} deals · {money(value, meta?.currentUser.currency, true)}
+                        {deals.length} deal{deals.length === 1 ? '' : 's'} · {money(value, meta?.currentUser.currency, true)}
                       </div>
                     </div>
-                    <Badge tone={isWon ? 'good' : 'default'}>{stage.probability ?? 50}%</Badge>
+                    <Badge tone={isWon ? 'good' : isLost ? 'danger' : 'default'}>{stage.probability ?? 50}%</Badge>
                   </div>
 
                   {/* Deals Cards List */}

@@ -872,19 +872,17 @@ export async function sendCampaign(
     const fullName = [m.first_name, m.last_name].filter(Boolean).join(' ') || firstName
 
     // Personalize both Subject and Content with comprehensive variable support ({{firstName}}, {{first_name}}, {{name}}, {{email}})
-    let subject = String(campaign.subject || campaign.name || 'Update from GoFox')
-    subject = subject
-      .replace(/\{\{\s*first_?name\s*\}\}/gi, firstName)
-      .replace(/\{\{\s*last_?name\s*\}\}/gi, lastName)
-      .replace(/\{\{\s*(full_?)?name\s*\}\}/gi, fullName)
-      .replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
+    const interpolateVars = (text: string) => {
+      return String(text || '')
+        .replace(/\{\{\s*first_?name\s*\}\}/gi, firstName)
+        .replace(/\{\{\s*last_?name\s*\}\}/gi, lastName)
+        .replace(/\{\{\s*(full_?)?name\s*\}\}/gi, fullName)
+        .replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
+        .replace(/\{\{\s*company(_?name)?\s*\}\}/gi, 'GoFox')
+    }
 
-    let content = String(campaign.body_html || campaign.content || campaign.subject || '')
-    content = content
-      .replace(/\{\{\s*first_?name\s*\}\}/gi, firstName)
-      .replace(/\{\{\s*last_?name\s*\}\}/gi, lastName)
-      .replace(/\{\{\s*(full_?)?name\s*\}\}/gi, fullName)
-      .replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
+    let subject = interpolateVars(String(campaign.subject || campaign.name || 'Update from GoFox'))
+    let content = interpolateVars(String(campaign.body_html || campaign.content || campaign.subject || ''))
 
     // Inject transparent open tracking pixel with public URL resolution
     const openPixel = `<img src="${publicBase}/api/public/campaigns/open/${campaignId}/${recipientRowId}" width="1" height="1" style="display:none;width:1px;height:1px;opacity:0" alt="" />`
@@ -911,7 +909,7 @@ export async function sendCampaign(
         `INSERT INTO campaign_recipients (id, org_id, campaign_id, contact_id, contact_name, email, status, delivered_at, created_at)
          VALUES (?, ?, ?, ?, ?, ?, 'delivered', ?, ?)`
       )
-        .bind(recipientRowId, orgId, campaignId, m.id, name, m.email, nowIso(), nowIso())
+        .bind(recipientRowId, orgId, campaignId, m.id, fullName, m.email, nowIso(), nowIso())
         .run()
     } catch {}
   }

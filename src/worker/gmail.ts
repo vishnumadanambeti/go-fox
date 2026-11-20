@@ -719,9 +719,19 @@ export type TemplateVars = Record<string, string>
 
 export function renderVariables(template: string, vars: TemplateVars): { output: string; missing: string[] } {
   const missing = new Set<string>()
+  const normVars: Record<string, string> = {}
+  for (const [k, v] of Object.entries(vars)) {
+    normVars[k] = v
+    normVars[k.toLowerCase()] = v
+    normVars[k.toLowerCase().replace(/[^a-z0-9]/g, '')] = v
+  }
+
   const output = template.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*(?:\|\s*([^}]*))?\}\}/g, (_match, key: string, fallback: string | undefined) => {
-    const value = vars[key]
-    if (value !== undefined && value !== null && String(value).trim() !== '') return String(value)
+    const rawVal = vars[key]
+    if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== '') return String(rawVal)
+    const normKey = key.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const normVal = normVars[normKey] ?? normVars[key.toLowerCase()]
+    if (normVal !== undefined && normVal !== null && String(normVal).trim() !== '') return String(normVal)
     if (fallback !== undefined && fallback.trim() !== '') return fallback.trim()
     missing.add(key)
     return ''
@@ -742,12 +752,24 @@ export async function contactVariables(env: Env, orgId: string, contactId: strin
     .bind(contactId, orgId)
     .first<Record<string, unknown>>()
   if (!contact) return {}
+  const first = String(contact.first_name ?? '')
+  const last = String(contact.last_name ?? '')
+  const full = [first, last].filter(Boolean).join(' ') || first
+  const company = String(contact.company_name ?? '')
   return {
-    first_name: String(contact.first_name ?? ''),
-    last_name: String(contact.last_name ?? ''),
+    first_name: first,
+    firstName: first,
+    firstname: first,
+    last_name: last,
+    lastName: last,
+    lastname: last,
+    name: full,
+    fullName: full,
+    full_name: full,
     email: String(contact.email ?? ''),
     phone: String(contact.phone ?? ''),
-    company_name: String(contact.company_name ?? ''),
+    company_name: company,
+    company: company,
     owner_name: String(contact.owner_name ?? ''),
     deal_name: String(contact.deal_name ?? ''),
   }

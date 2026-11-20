@@ -23,12 +23,13 @@ import {
   Ticket,
   TrendingUp,
   Users,
+  Handshake,
   X,
 } from 'lucide-react'
 import { useApp, useFetch } from '../lib/app-context'
 import { Link, useNavigate } from '../lib/router'
 import { money, timeAgo } from '../lib/format'
-import { ErrorState, Skeleton, Button, Badge, Modal, cx } from '../components/ui'
+import { ErrorState, Skeleton, Button, Badge, Modal, EnterpriseKpiCard, cx } from '../components/ui'
 import { useMemo, useState } from 'react'
 import { RecordFormDrawer } from '../components/resource'
 import type { Row } from '../lib/api'
@@ -105,6 +106,7 @@ export function HomePage() {
   const [days, setDays] = useState(7)
   const { data, loading, error, reload } = useFetch<HomeData>(`/api/dashboards/home?days=${days}`)
   const [quickTask, setQuickTask] = useState(false)
+  const [quickEntity, setQuickEntity] = useState<string | null>(null)
   const [customising, setCustomising] = useState(false)
   const [tourDone, setTourDone] = useState(() => localStorage.getItem('gofox:tourDone') === 'true')
   const [checklistDismissed, setChecklistDismissed] = useState(false)
@@ -177,6 +179,9 @@ export function HomePage() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? t('home.good_morning', 'Good morning') : hour < 18 ? t('home.good_afternoon', 'Good afternoon') : t('home.good_evening', 'Good evening')
   const currency = me?.currency ?? 'INR'
+
+  const pipelineTotal = useMemo(() => (data?.pipeline ?? []).reduce((sum, stage) => sum + Number(stage.value ?? 0), 0), [data?.pipeline])
+  const wonTotal = useMemo(() => Number(data?.charts?.wonLost?.won_value ?? 0), [data?.charts?.wonLost])
 
   const setupSteps = useMemo(() => {
     if (!data) return []
@@ -390,6 +395,14 @@ export function HomePage() {
         )
 
       case 'goals':
+        const pipelineVal = Number(data.counts?.pipeline_value ?? 0)
+        const wonVal = Number(data.charts?.wonLost?.won_value ?? 0)
+        const wonCount = Number(data.charts?.wonLost?.won_count ?? 0)
+        const leadCount = Number(data.counts?.leads ?? 0)
+        const convRate = leadCount > 0 ? Math.min(100, Math.round((wonCount / leadCount) * 100)) : 0
+        const quarterTarget = Math.max(pipelineVal, wonVal, 50000)
+        const progressPct = quarterTarget > 0 ? Math.min(100, Math.round(((pipelineVal + wonVal) / quarterTarget) * 100)) : 0
+
         return (
           <div className="rounded-2xl border border-line bg-surface p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col justify-between">
             <div className="flex items-center justify-between border-b border-line/60 pb-3 mb-3">
@@ -398,26 +411,28 @@ export function HomePage() {
                 <span>{t('home.goals', 'Org goals')}</span>
               </div>
               <div className="rounded-md border border-line bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink">
-                Q4 FY26
+                Live Performance
               </div>
             </div>
             <div className="space-y-3 my-auto">
               <div>
                 <div className="flex justify-between text-[12px] mb-1">
-                  <span className="text-muted">Quarterly Pipeline Target</span>
-                  <span className="font-semibold text-ink">₹25,000 / ₹50,000</span>
+                  <span className="text-muted">Quarterly Pipeline Volume</span>
+                  <span className="font-semibold text-ink">
+                    {money(pipelineVal + wonVal, currency, true)} / {money(quarterTarget, currency, true)}
+                  </span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden border border-line/40">
-                  <div className="h-full bg-accent rounded-full" style={{ width: '50%' }} />
+                  <div className="h-full bg-accent rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-[12px] mb-1">
-                  <span className="text-muted">Lead Conversion Rate</span>
-                  <span className="font-semibold text-ink">66%</span>
+                  <span className="text-muted">Lead-to-Deal Conversion</span>
+                  <span className="font-semibold text-ink">{convRate}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden border border-line/40">
-                  <div className="h-full bg-good rounded-full" style={{ width: '66%' }} />
+                  <div className="h-full bg-good rounded-full transition-all duration-500" style={{ width: `${convRate}%` }} />
                 </div>
               </div>
             </div>
@@ -593,48 +608,58 @@ export function HomePage() {
             <div className="grid grid-cols-2 gap-2.5 rounded-xl border border-line bg-surface-2 p-3 mb-3">
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">OPEN DEALS</div>
-                <div className="text-[18px] font-bold text-ink mt-0.5">{String(data.counts?.open_deals ?? 2)}</div>
+                <div className="text-[18px] font-bold text-ink mt-0.5">{String(data.counts?.open_deals ?? 0)}</div>
               </div>
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">WEIGHTED</div>
                 <div className="text-[18px] font-bold text-ink mt-0.5">
-                  {money(data.counts?.weighted_pipeline || 10000, currency, true)}
+                  {money(Number(data.counts?.weighted_pipeline ?? 0), currency, true)}
                 </div>
               </div>
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">OPEN VALUE</div>
                 <div className="text-[18px] font-bold text-ink mt-0.5">
-                  {money(data.counts?.pipeline_value || 25000, currency, true)}
+                  {money(Number(data.counts?.pipeline_value ?? 0), currency, true)}
                 </div>
               </div>
               <div>
                 <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted">WON THIS PERIOD</div>
                 <div className="text-[18px] font-bold text-ink mt-0.5">
-                  {String(data.charts?.wonLost?.won_count ?? 0)} · {money(data.charts?.wonLost?.won_value ?? 0, currency, true)}
+                  {String(data.charts?.wonLost?.won_count ?? 0)} · {money(Number(data.charts?.wonLost?.won_value ?? 0), currency, true)}
                 </div>
               </div>
             </div>
 
             {/* Deals list */}
-            <div className="space-y-1.5">
-              {(data.openDeals && data.openDeals.length > 0 ? data.openDeals : [
-                { id: '1', name: 'Enterprise SaaS Tier Deal', stage_name: 'Qualification', value: 0 },
-                { id: '2', name: 'Strategic Cloud Rollout', stage_name: 'Proposal', value: 25000 },
-              ]).map((deal) => (
-                <Link
-                  key={String(deal.id)}
-                  to="/sales/deals"
-                  className="flex items-center justify-between p-2.5 rounded-lg border border-line/60 bg-surface hover:bg-surface-2 transition-colors text-[12.5px]"
+            {data.openDeals && data.openDeals.length > 0 ? (
+              <div className="space-y-1.5 flex-1">
+                {data.openDeals.map((deal) => (
+                  <Link
+                    key={String(deal.id)}
+                    to="/sales/deals"
+                    className="flex items-center justify-between p-2.5 rounded-lg border border-line/60 bg-surface hover:bg-surface-2 transition-colors text-[12.5px]"
+                  >
+                    <div className="font-medium text-ink truncate mr-2">{String(deal.name)}</div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="rounded bg-accent-soft text-accent px-2 py-0.5 text-[10.5px] font-medium">
+                        {String(deal.stage_name || 'Open')} · {money(Number(deal.value), currency, true)}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 text-center flex-1">
+                <p className="text-[12.5px] text-muted mb-2">No open deals recorded in your pipeline.</p>
+                <button
+                  type="button"
+                  onClick={() => setQuickEntity('deals')}
+                  className="rounded-lg bg-accent text-white px-3 py-1.5 text-xs font-semibold hover:bg-accent-hover transition shadow-xs"
                 >
-                  <div className="font-medium text-ink truncate mr-2">{String(deal.name)}</div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="rounded bg-accent-soft text-accent px-2 py-0.5 text-[10.5px] font-medium">
-                      {String(deal.stage_name || 'Open')} · {money(Number(deal.value), currency, true)}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  + Create deal
+                </button>
+              </div>
+            )}
           </div>
         )
 
@@ -767,8 +792,24 @@ export function HomePage() {
           <p className="text-[13px] text-muted mt-0.5">Here's what's happening today across your pipeline.</p>
         </div>
 
-        {/* Global Toolbar Controls */}
-        <div className="flex items-center gap-2">
+        {/* Global Toolbar Controls & Quick Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Create Buttons */}
+          <div className="hidden sm:flex items-center gap-1.5 mr-1">
+            <Button size="sm" variant="default" onClick={() => setQuickEntity('leads')}>
+              <Plus size={12} /> Lead
+            </Button>
+            <Button size="sm" variant="default" onClick={() => setQuickEntity('deals')}>
+              <Plus size={12} /> Deal
+            </Button>
+            <Button size="sm" variant="default" onClick={() => setQuickEntity('contacts')}>
+              <Plus size={12} /> Contact
+            </Button>
+            <Button size="sm" variant="default" onClick={() => setQuickTask(true)}>
+              <Plus size={12} /> Task
+            </Button>
+          </div>
+
           {/* Date Window Selector */}
           <div className="flex items-center gap-1 rounded-lg border border-line bg-surface p-0.5 shadow-xs">
             {[7, 14, 30].map((d) => (
@@ -797,6 +838,52 @@ export function HomePage() {
             <span>Customize Dashboard</span>
           </button>
         </div>
+      </div>
+
+      {/* 6-Card Executive KPI Strip (Real D1 Metrics with Enterprise Styling) */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <EnterpriseKpiCard
+          title="Total Contacts"
+          value={Number(data?.counts?.contacts ?? 0)}
+          icon={<Users size={16} />}
+          gradient="blue-indigo"
+          to="/contacts"
+        />
+        <EnterpriseKpiCard
+          title="Active Leads"
+          value={Number(data?.counts?.leads ?? 0)}
+          icon={<Target size={16} />}
+          gradient="indigo-violet"
+          to="/leads"
+        />
+        <EnterpriseKpiCard
+          title="Open Deals"
+          value={Number(data?.counts?.deals ?? 0)}
+          icon={<Handshake size={16} />}
+          gradient="teal-cyan"
+          to="/sales/deals"
+        />
+        <EnterpriseKpiCard
+          title="Pipeline Value"
+          value={money(pipelineTotal, currency, true)}
+          icon={<TrendingUp size={16} />}
+          gradient="blue-indigo"
+          to="/sales/deals"
+        />
+        <EnterpriseKpiCard
+          title="Won Revenue"
+          value={money(wonTotal, currency, true)}
+          icon={<Award size={16} />}
+          gradient="emerald-teal"
+          to="/sales/deals"
+        />
+        <EnterpriseKpiCard
+          title="My Open Tasks"
+          value={Number(data?.counts?.tasks ?? data?.tasks?.length ?? 0)}
+          icon={<Ticket size={16} />}
+          gradient="amber-coral"
+          to="/sales/tasks"
+        />
       </div>
 
       {/* Interactive Drag & Drop Helper Bar */}
@@ -1025,6 +1112,19 @@ export function HomePage() {
           reload()
         }}
       />
+
+      {quickEntity ? (
+        <RecordFormDrawer
+          entity={quickEntity}
+          open={Boolean(quickEntity)}
+          record={null}
+          onClose={() => setQuickEntity(null)}
+          onSaved={() => {
+            setQuickEntity(null)
+            reload()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

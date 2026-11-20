@@ -215,7 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onMenu={() => setMobileOpen(true)} />
-        <main className="min-h-0 flex-1 overflow-y-auto gx-scroll gx-fade pb-[62px] md:pb-0">{children}</main>
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto gx-scroll gx-fade pb-[62px] md:pb-0">{children}</main>
         <MobileTabs onMore={() => setMobileOpen(true)} />
       </div>
     </div>

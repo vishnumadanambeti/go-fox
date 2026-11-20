@@ -38,6 +38,18 @@
   --color-info: #2563eb;
   --color-info-soft: #eff6ff;
 
+  /* GoFox World-Class Enterprise Design System Palette */
+  --color-brand-navy: #14213d;
+  --color-brand-blue: #315ef5;
+  --color-brand-indigo: #625beb;
+  --color-brand-violet: #805ad5;
+  --color-brand-teal: #0d9488;
+  --color-brand-cyan: #0891b2;
+  --color-brand-sky: #38a7f9;
+  --color-brand-coral: #f4776b;
+  --color-brand-amber: #f2b84b;
+  --color-brand-emerald: #16a37b;
+
   --radius-card: 14px;
   --radius-control: 8px;
   --shadow-card: 0 1px 3px 0 rgb(15 23 42 / 0.05), 0 1px 2px -1px rgb(15 23 42 / 0.03);
@@ -475,6 +487,30 @@
 .gx-card:hover {
   border-color: var(--color-line-strong);
   box-shadow: 0 8px 24px -4px rgb(15 23 42 / 0.09), 0 2px 6px -2px rgb(15 23 42 / 0.04);
+}
+
+/* ------------------------------------------------------------- gradient utilities */
+.gx-gradient-blue-indigo { background: linear-gradient(135deg, #315ef5 0%, #625beb 100%); }
+.gx-gradient-indigo-violet { background: linear-gradient(135deg, #625beb 0%, #805ad5 100%); }
+.gx-gradient-teal-cyan { background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%); }
+.gx-gradient-blue-cyan { background: linear-gradient(135deg, #315ef5 0%, #0891b2 100%); }
+.gx-gradient-coral-violet { background: linear-gradient(135deg, #f4776b 0%, #805ad5 100%); }
+.gx-gradient-emerald-teal { background: linear-gradient(135deg, #16a37b 0%, #0d9488 100%); }
+
+.gx-text-gradient-blue-indigo {
+  background: linear-gradient(135deg, #315ef5 0%, #625beb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.gx-text-gradient-indigo-violet {
+  background: linear-gradient(135deg, #625beb 0%, #805ad5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.gx-text-gradient-teal-cyan {
+  background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .gx-kpi {
   background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-2) 100%);

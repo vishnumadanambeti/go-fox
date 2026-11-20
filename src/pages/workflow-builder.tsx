@@ -69,7 +69,7 @@ import {
 } from 'lucide-react'
 import { del, patch, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
-import { Badge, Button, Drawer, FormRow, Modal, Spinner, cx } from '../components/ui'
+import { Badge, Button, ConfirmDialog, Drawer, FormRow, Modal, Spinner, cx } from '../components/ui'
 import { useNavigate } from '../lib/router'
 import { TRIGGERS } from './automation'
 
@@ -491,6 +491,8 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
   const [simRunning, setSimRunning] = useState(false)
   const [simContactId, setSimContactId] = useState('')
   const [simLogs, setSimLogs] = useState<{ step: string; status: 'ok' | 'fail' | 'info'; detail: string }[]>([])
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deletingWorkflow, setDeletingWorkflow] = useState(false)
 
   const workflow = isNew
     ? { id: 'new', name: 'Untitled automation', status: 'draft', nodes: '[]', edges: '[]', trigger: 'deal.created' }
@@ -912,16 +914,7 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
           <Button
             size="sm"
             variant="danger"
-            onClick={async () => {
-              if (!window.confirm(`Are you sure you want to delete workflow "${String(workflow.name)}"?`)) return
-              try {
-                await del(`/api/resources/workflows/${id}`)
-                toast('Workflow deleted successfully.', 'good')
-                navigate('/marketing/workflows')
-              } catch (err: any) {
-                toast(err?.message ?? 'Could not delete workflow.', 'bad')
-              }
-            }}
+            onClick={() => setDeleteConfirmOpen(true)}
             title="Delete this workflow"
           >
             <Trash2 size={13} /> <span className="hidden sm:inline">Delete</span>
@@ -1387,6 +1380,25 @@ export function WorkflowBuilderPage({ id }: { id: string }) {
           )}
         </div>
       </Modal>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title={`Delete workflow "${String(workflow?.name ?? 'automation')}"?`}
+        message="This workflow will be permanently moved to trash and will no longer execute."
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={async () => {
+          setDeletingWorkflow(true)
+          try {
+            await del(`/api/resources/workflows/${id}`)
+            toast('Workflow deleted successfully.', 'good')
+            navigate('/marketing/workflows')
+          } catch (err: any) {
+            toast(err?.message ?? 'Could not delete workflow.', 'bad')
+            setDeletingWorkflow(false)
+          }
+        }}
+        loading={deletingWorkflow}
+      />
     </div>
   )
 }

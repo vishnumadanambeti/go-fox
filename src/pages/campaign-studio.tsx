@@ -58,6 +58,7 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
   FormRow,
@@ -157,11 +158,14 @@ export function CampaignsPage() {
     }
   }
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this campaign?')) return
     try {
       await del(`/api/resources/campaigns/${id}`)
       toast('Campaign deleted successfully.', 'good')
+      setDeletingId(null)
       reload()
     } catch (err: any) {
       toast(err?.message ?? 'Failed to delete campaign.', 'bad')
@@ -170,11 +174,11 @@ export function CampaignsPage() {
 
   const handleBulkDelete = async () => {
     if (!selectedIds.size) return
-    if (!window.confirm(`Delete ${selectedIds.size} selected campaign(s)?`)) return
     try {
       await post('/api/resources/campaigns/bulk', { action: 'delete', ids: Array.from(selectedIds) })
       toast(`${selectedIds.size} campaign(s) deleted.`, 'good')
       setSelectedIds(new Set())
+      setBulkDeleting(false)
       reload()
     } catch (err: any) {
       toast(err?.message ?? 'Failed to delete campaigns.', 'bad')
@@ -364,7 +368,7 @@ export function CampaignsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void handleBulkDelete()}
+                onClick={() => setBulkDeleting(true)}
                 className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-red-700 transition"
               >
                 <Trash2 size={12} />
@@ -546,7 +550,7 @@ export function CampaignsPage() {
                               <FileText size={14} />
                             </Link>
                             <button
-                              onClick={() => handleDelete(c.id)}
+                              onClick={() => setDeletingId(c.id)}
                               className="flex size-7 items-center justify-center rounded hover:bg-rose-50 text-muted hover:text-rose-600"
                               title="Delete"
                             >
@@ -566,6 +570,22 @@ export function CampaignsPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deletingId)}
+        title="Delete this campaign?"
+        message="This campaign and its recipient activity will be moved to trash. You can restore it from Trash if needed."
+        onCancel={() => setDeletingId(null)}
+        onConfirm={() => deletingId && void handleDelete(deletingId)}
+      />
+      <ConfirmDialog
+        open={bulkDeleting}
+        title={`Delete ${selectedIds.size} selected campaign(s)?`}
+        message="All selected campaigns will be moved to trash."
+        confirmLabel="Delete Selected"
+        onCancel={() => setBulkDeleting(false)}
+        onConfirm={() => void handleBulkDelete()}
+      />
 
       {/* CREATE CAMPAIGN MODAL (Screenshot 2) */}
       <Modal
@@ -1866,6 +1886,8 @@ export function CampaignDetailPage({ id }: { id: string }) {
   const navigate = useNavigate()
   const [activeMetricTab, setActiveMetricTab] = useState<'delivered' | 'opened' | 'clicked' | 'replied' | 'sent'>('delivered')
   const [searchRecipients, setSearchRecipients] = useState('')
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const { data, loading, error, reload } = useFetch<{
     record: Row
@@ -1965,16 +1987,7 @@ export function CampaignDetailPage({ id }: { id: string }) {
               Back to campaigns
             </button>
             <button
-              onClick={async () => {
-                if (!window.confirm(`Delete campaign "${c.name}"?`)) return
-                try {
-                  await del(`/api/resources/campaigns/${c.id}`)
-                  toast('Campaign deleted successfully.', 'good')
-                  navigate('/marketing/campaigns')
-                } catch (err: any) {
-                  toast(err?.message ?? 'Failed to delete campaign.', 'bad')
-                }
-              }}
+              onClick={() => setDeleteConfirmOpen(true)}
               className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] font-medium text-red-600 hover:bg-red-500/20 dark:text-red-400 transition"
               title="Delete campaign"
             >
@@ -2176,6 +2189,25 @@ export function CampaignDetailPage({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        title={`Delete campaign "${c.name}"?`}
+        message="This campaign and its analytics will be moved to trash. You can restore it from Trash if needed."
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={async () => {
+          setDeleting(true)
+          try {
+            await del(`/api/resources/campaigns/${c.id}`)
+            toast('Campaign deleted successfully.', 'good')
+            navigate('/marketing/campaigns')
+          } catch (err: any) {
+            toast(err?.message ?? 'Failed to delete campaign.', 'bad')
+            setDeleting(false)
+          }
+        }}
+        loading={deleting}
+      />
     </div>
   )
 }

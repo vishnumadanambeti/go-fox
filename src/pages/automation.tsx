@@ -28,6 +28,7 @@ import {
   Button,
   Card,
   CardHeader,
+  ConfirmDialog,
   EmptyState,
   ErrorState,
   FormRow,
@@ -221,6 +222,7 @@ export function WorkflowsPage({ module }: { module?: string }) {
   const [name, setName] = useState('')
   const [trigger, setTrigger] = useState('contact.created')
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [workflowToDelete, setWorkflowToDelete] = useState<Row | null>(null)
 
   const workflows = data?.data ?? []
   const runs = runsFetch.data?.data ?? []
@@ -302,11 +304,11 @@ export function WorkflowsPage({ module }: { module?: string }) {
   }
 
   const deleteWorkflow = async (workflow: Row) => {
-    if (!window.confirm(`Are you sure you want to delete workflow "${workflow.name}"?`)) return
     setBusyId(`del-${workflow.id}`)
     try {
       await del(`/api/resources/workflows/${workflow.id}`)
       toast(`Workflow "${workflow.name}" deleted successfully.`, 'good')
+      setWorkflowToDelete(null)
       reload()
       refreshMeta()
     } catch (err: any) {
@@ -527,7 +529,7 @@ export function WorkflowsPage({ module }: { module?: string }) {
                         <Button
                           size="sm"
                           variant="danger"
-                          onClick={() => void deleteWorkflow(workflow)}
+                          onClick={() => setWorkflowToDelete(workflow)}
                           loading={busyId === `del-${workflow.id}`}
                           title="Delete workflow"
                         >
@@ -547,6 +549,15 @@ export function WorkflowsPage({ module }: { module?: string }) {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(workflowToDelete)}
+        title={`Delete workflow "${workflowToDelete?.name}"?`}
+        message="This automation workflow will be moved to trash and will no longer fire on triggers."
+        onCancel={() => setWorkflowToDelete(null)}
+        onConfirm={() => workflowToDelete && void deleteWorkflow(workflowToDelete)}
+        loading={busyId === `del-${workflowToDelete?.id}`}
+      />
 
       {/* New Workflow Modal with Quick Presets */}
       <Modal

@@ -412,6 +412,7 @@ export function ResourcePage({
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
   const [deleting, setDeleting] = useState<Row | null>(null)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
   const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'grid'>('table')
@@ -490,12 +491,12 @@ export function ResourcePage({
 
   const handleBulkDelete = async () => {
     if (!selected.size) return
-    if (!window.confirm(`Are you sure you want to delete ${selected.size} selected ${def.label.toLowerCase()}?`)) return
     setBusy(true)
     try {
       await post(`/api/resources/${entity}/bulk`, { action: 'delete', ids: Array.from(selected) })
       toast(`${selected.size} record(s) moved to trash.`, 'good')
       setSelected(new Set())
+      setBulkDeleting(false)
       reload()
       refreshMeta()
     } catch (err: any) {
@@ -716,7 +717,7 @@ export function ResourcePage({
               <Button
                 size="sm"
                 variant="danger"
-                onClick={() => void handleBulkDelete()}
+                onClick={() => setBulkDeleting(true)}
                 loading={busy}
                 title="Delete selected records"
               >
@@ -1019,29 +1020,13 @@ export function ResourcePage({
           <Button
             size="sm"
             onClick={() => {
-              toast(`Opening email composer for ${selected.size} recipients…`, 'good')
-            }}
-          >
-            <Mail size={13} /> Email
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              toast(`Launching call session for selected records…`, 'good')
-            }}
-          >
-            <Phone size={13} /> Call
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
               setTagModalOpen(true)
             }}
           >
             <Tag size={13} /> Tag
           </Button>
-          <Button size="sm" variant="danger" onClick={() => void handleBulkDelete()} loading={busy}>
-            <Trash2 size={13} /> Delete
+          <Button size="sm" variant="danger" onClick={() => setBulkDeleting(true)} loading={busy}>
+            <Trash2 size={13} /> Delete Selected
           </Button>
           <IconButton label="Clear selection" onClick={() => setSelected(new Set())}>
             <X size={14} />
@@ -1107,6 +1092,15 @@ export function ResourcePage({
         message="Linked records are preserved. You can restore it from Trash while the retention window is open."
         onCancel={() => setDeleting(null)}
         onConfirm={() => deleting && remove(deleting)}
+        loading={busy}
+      />
+      <ConfirmDialog
+        open={bulkDeleting}
+        title={`Move ${selected.size} selected ${def.label.toLowerCase()} to trash?`}
+        message="Selected records will be moved to trash. You can restore them from the Trash page if needed."
+        confirmLabel="Delete Selected"
+        onCancel={() => setBulkDeleting(false)}
+        onConfirm={() => void handleBulkDelete()}
         loading={busy}
       />
     </div>
