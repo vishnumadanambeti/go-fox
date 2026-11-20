@@ -8,6 +8,27 @@
   Crisp white workspace, elegant slate borders, deep navy/charcoal typography,
   refined GoFox orange accents, and subtle multi-layer elevation.
 */
+:root {
+  --studio-navy: #142D4E;
+  --studio-blue: #2563EB;
+  --studio-blue-hover: #1D4ED8;
+  --studio-teal: #2CA6A4;
+  --studio-bg: #F7F9FC;
+  --studio-surface: #FFFFFF;
+  --studio-border: #E5EAF1;
+  --studio-text: #172B4D;
+  --studio-muted: #718096;
+  --studio-canvas-bg: #F0F3F8;
+  --studio-blue-tint: rgba(37, 99, 235, 0.08);
+  --studio-blue-tint-hover: rgba(37, 99, 235, 0.12);
+  --studio-radius-input: 6px;
+  --studio-radius-card: 10px;
+  --studio-radius-modal: 14px;
+  --studio-shadow-rest: 0 1px 3px rgba(20, 45, 78, 0.05), 0 1px 2px rgba(20, 45, 78, 0.03);
+  --studio-shadow-hover: 0 4px 12px rgba(20, 45, 78, 0.08), 0 2px 4px rgba(20, 45, 78, 0.04);
+  --studio-shadow-floating: 0 12px 24px -4px rgba(20, 45, 78, 0.12), 0 4px 8px -2px rgba(20, 45, 78, 0.06);
+}
+
 @theme {
   --font-sans: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;

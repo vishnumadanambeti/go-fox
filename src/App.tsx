@@ -42,7 +42,7 @@ import { InboxPage } from './pages/inbox'
 const WorkflowBuilderRoute = lazy(() => import('./pages/workflow-builder').then((m) => ({ default: m.WorkflowBuilderRoute })))
 const LandingPageGrapesEditor = lazy(() => import('./pages/landing-editor').then((m) => ({ default: m.LandingPageGrapesEditor })))
 const EmailStudioPage = lazy(() => import('./pages/email-studio').then((m) => ({ default: m.EmailStudioPage })))
-const EmailStudioEditor = lazy(() => import('./pages/email-studio').then((m) => ({ default: m.EmailStudioEditor })))
+const EmailBuilderEditor = lazy(() => import('./pages/email-builder-editor').then((m) => ({ default: m.EmailBuilderEditor })))
 import {
   KnowledgeBasePage,
   LiveChatPage,
@@ -206,7 +206,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
   if (pageEditor) return <LandingPageEditorPage id={pageEditor.id} />
   if (path === '/marketing/emails') return <EmailStudioPage />
   const emailEditor = param('/marketing/emails/:id/edit')
-  if (emailEditor) return <EmailStudioEditor id={emailEditor.id} key={emailEditor.id} />
+  if (emailEditor) return <EmailBuilderEditor id={emailEditor.id} key={emailEditor.id} />
   if (path === '/marketing/campaigns' || path === '/crm/campaign' || path === '/crm/campaigns') return <CampaignsPage />
   if (path === '/marketing/campaigns/new' || path === '/crm/campaigns/new') return <CampaignWizardPage />
   const campaignWizard = param('/marketing/campaigns/:id/wizard') || param('/crm/campaigns/:id/wizard')

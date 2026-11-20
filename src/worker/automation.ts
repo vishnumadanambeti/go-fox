@@ -875,9 +875,14 @@ export async function sendCampaign(
 
   for (const m of eligible) {
     const recipientRowId = uid()
-    const firstName = String(m.first_name || m.email?.split('@')[0] || 'there')
+    let cleanFirst = String(m.first_name || '').trim()
+    if (!cleanFirst && m.email) {
+      const emailPrefix = m.email.split('@')[0].split(/[._-]/)[0]
+      cleanFirst = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
+    }
+    const firstName = cleanFirst || 'there'
     const lastName = String(m.last_name || '')
-    const fullName = [m.first_name, m.last_name].filter(Boolean).join(' ') || firstName
+    const fullName = [cleanFirst, lastName].filter(Boolean).join(' ') || firstName
 
     // Personalize with comprehensive variable support ({{firstName}}, {{contact.first_name}}, {{fullName}}, {{email}}, etc.)
     const interpolateVars = (text: string) => {

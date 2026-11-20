@@ -56,6 +56,13 @@ export type BlockType =
   | 'product'
   | 'footer'
   | 'navbar'
+  | 'countdown'
+  | 'progress-bar'
+  | 'accordion'
+  | 'image-gallery'
+  | 'table'
+  | 'code-block'
+  | 'progress-circle'
 
 export interface BlockContent {
   text?: string
@@ -75,7 +82,7 @@ export interface BlockContent {
   fontFamily?: string
   alignment?: 'left' | 'center' | 'right'
   link?: string
-  items?: SocialItem[] | MetricItem[]
+  items?: SocialItem[] | MetricItem[] | FAQItem[]
   borderRadius?: number
   borderWidth?: number
   borderColor?: string
@@ -96,11 +103,25 @@ export interface BlockContent {
   placeholder?: string
   buttonText?: string
   buttonUrl?: string
+  datetime?: string
+  percentage?: number
+  headers?: string[]
+  rows?: string[][]
+  images?: { src: string; alt: string }[]
+  columns?: number
+  language?: string
+  question?: string
+  answer?: string
 }
 
 export interface MetricItem {
   text: string
   label: string
+}
+
+export interface FAQItem {
+  question: string
+  answer: string
 }
 
 export interface SocialItem {
@@ -136,9 +157,17 @@ export interface BlockStyles {
   fontWeight?: number
   lineHeight?: number
   letterSpacing?: number
-  textAlign?: 'left' | 'center' | 'right'
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
   padding?: number
+  paddingTop?: number
+  paddingRight?: number
+  paddingBottom?: number
+  paddingLeft?: number
   margin?: number
+  marginTop?: number
+  marginRight?: number
+  marginBottom?: number
+  marginLeft?: number
   border?: string
   borderRadius?: number
   width?: number
@@ -147,10 +176,13 @@ export interface BlockStyles {
   objectFit?: 'cover' | 'contain' | 'fill'
   borderColor?: string
   borderWidth?: number
+  borderStyle?: 'solid' | 'dashed' | 'dotted' | 'none'
   borderLeft?: string
   borderRight?: string
   borderBottom?: string
   borderTop?: string
+  hideOnMobile?: boolean
+  hideOnDesktop?: boolean
 }
 
 export interface LibraryBlock {
@@ -189,7 +221,7 @@ export interface BuilderState {
   document: EmailDocument
   selectedId: string | null
   selectedType: 'section' | 'column' | 'block' | null
-  mode: 'design' | 'code' | 'plain'
+  mode: BuilderMode
   device: 'desktop' | 'tablet' | 'mobile'
   preview: boolean
   history: EmailDocument[]
@@ -198,13 +230,17 @@ export interface BuilderState {
   saving: boolean
 }
 
+export type BuilderMode = 'design' | 'code' | 'plain'
+
 export interface DragItem {
   type: 'library' | 'canvas'
   blockType?: BlockType
   blockId?: string
   sourceId?: string
   sectionId?: string
+  sectionIndex?: number
   columnId?: string
   index?: number
+  isCanvasRoot?: boolean
   data?: Block
 }

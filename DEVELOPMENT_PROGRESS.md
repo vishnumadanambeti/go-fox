@@ -18,7 +18,7 @@ Status: ALL PHASES COMPLETED | Full Enterprise App Redesign Verified & Accepted 
 | Customizable Dashboard Engine | Reorderable Widgets + 4 Presets + Date Windows | PASS | 11 Modular widgets, width toggles, 7d/14d/30d filter, persistent in localStorage |
 | Global Search & Command Palette | Multi-Entity Search + Category Tabs + Quick Actions | PASS | Live query across 11 entities (CRM, Sales, Marketing, Flows, Docs) + Quick actions |
 | Enterprise Roles & Permissions | 10 Roles + Matrix + FLAC + Role Simulation | PASS | 11 Modules x 9 Actions authorization matrix + Field-level security preview |
-| Email Template Selling Suite | 32 Distinct Presets + 3-Panel Editor + 1-Click Campaign Flow | PASS | 32 Presets across 14 categories + GrapesJS Selling Blocks |
+| Email Template Selling Suite | 32 Distinct Presets + DnD-Only Editor + 1-Click Campaign Flow | PASS | 32 Presets across 14 categories + native dnd-kit email blocks |
 | Zoho Flow Workflow Builder | Visual Canvas + Auto-Layout + Simulator + Edge Dragging | PASS | Handles enlarged (13px), overflow clipping resolved, edge dragging verified |
 | Zoho Automations Hub | 4-KPI bar + 12 Selling Blueprint presets + Runs trace | PASS | 12 Prebuilt blueprints, real D1-backed metrics, execution audits |
 | Browser Functional QA | Live E2E Browser Testing | PASS | Executed on `http://localhost:3001` via Browser QA suite |
@@ -51,7 +51,7 @@ Status: ALL PHASES COMPLETED | Full Enterprise App Redesign Verified & Accepted 
 | 19 | Create Campaign & Wizard Step 1 | Channel modal (Email, SMS, WhatsApp, Regular, A/B); Campaign Wizard Step 1 Details | `src/pages/marketing.tsx` | Replicated |
 | 20 | Wizard Step 1 & Step 2 Recipients | Sender & reply-to setup; Audience selection (Lists, buckets, Deliverability safeguards) | `src/pages/marketing.tsx` | Replicated |
 | 21 | Wizard Step 2 & Step 3 Content | Email Sending Capacity telemetry widget (Plan limit, safe capacity, warm-up); Step 3 Subject, preview, editor options | `src/pages/marketing.tsx` | Replicated |
-| 22 | GrapesJS Visual Designer & Step 3 | Drag-and-drop email designer (Content, columns, blocks, styles, AI) & live preview | `src/pages/email-studio.tsx` | Replicated |
+| 22 | DnD Email Designer & Step 3 | Native dnd-kit builder (blocks, columns, styles), responsive HTML/plain-text preview | `src/components/email-builder/EmailBuilder.tsx` | Replicated |
 | 23 | Wizard Step 4 Review & Step 5 Send | Review checklist with Connected Apps warning banner; Send & Schedule capacity card | `src/pages/marketing.tsx` | Replicated |
 | 24 | Wizard Step 5 Send Options | Send now vs Schedule later, pacing days/hours, send test email, trigger workflow on open/click | `src/pages/marketing.tsx` | Replicated |
 | 25 | `/marketing/sequences` & Step Editor | Sequences list with Active/Enrollment KPIs; Sequence builder with AI draft prompt & multi-step tabs | `src/pages/marketing.tsx` | Replicated |
@@ -88,7 +88,7 @@ Status: ALL PHASES COMPLETED | Full Enterprise App Redesign Verified & Accepted 
 | MOD-008 | Marketing Dashboard | Overview & charts | Lead funnel, channel performance, forms/pages conversion, email analytics. | Aggregates from database. | PASS | 100% |
 | MOD-009 | Forms | Form builder & render | Embedded, rule-based, template gallery, public render `/f/:slug`. | Real submission to lead creation. | PASS | 100% |
 | MOD-010 | Landing Pages | Landing page editor | Block & GrapesJS editor, public render `/p/:slug`. | Real view tracking. | PASS | 100% |
-| MOD-011 | Email Templates | Email studio | Categorized template gallery, GrapesJS visual email builder. | Real templates storage. | PASS | 100% |
+| MOD-011 | Email Templates | Email studio | Categorized template gallery, native dnd-kit visual email builder. | Real templates storage and structured document persistence. | PASS | 100% |
 | MOD-012 | Campaigns | 5-step campaign wizard | Multi-channel wizard (Email/SMS/WhatsApp), audience selection, suppression safeguards, sending capacity telemetry, schedule/send pacing. | Real database campaign and delivery records. | PASS | 100% |
 | MOD-013 | Email Sequences | Multi-step sequence editor | Step builder with delay, templates, AI draft prompt, enrollment tracking. | Real database sequence execution. | PASS | 100% |
 | MOD-014 | WhatsApp Inbox | 2-pane conversation inbox | Connection state, conversation list, send guard. | Real database conversations table. | PASS | 100% |

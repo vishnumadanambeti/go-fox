@@ -1528,13 +1528,40 @@ app.post('/api/templates/:id/test', async (c) => {
   let html = String(template.html ?? template.body ?? '')
   let text = String(template.plain_text ?? '')
   if (!html && !text) return fail(c, 'VALIDATION_ERROR', 'This template has no content yet.', 422)
+  let vars: Record<string, string> = {}
   if (body.contactId) {
-    const vars = await contactVariables(c.env, user.org_id, body.contactId)
-    if (Object.keys(vars).length) {
-      subject = renderVariables(subject, vars).output
-      html = renderVariables(html, vars).output
-      text = renderVariables(text, vars).output
+    vars = await contactVariables(c.env, user.org_id, body.contactId)
+  } else {
+    // Check if recipient email matches an existing contact in the workspace
+    const matchedContact = await c.env.DB.prepare('SELECT id FROM contacts WHERE email = ? AND org_id = ? AND deleted_at IS NULL LIMIT 1')
+      .bind(to, user.org_id)
+      .first<{ id: string }>()
+    if (matchedContact?.id) {
+      vars = await contactVariables(c.env, user.org_id, matchedContact.id)
+    } else {
+      const recipientFirst = to.split('@')[0]?.replace(/[._-]/g, ' ') || 'Friend'
+      const firstCapitalized = recipientFirst.charAt(0).toUpperCase() + recipientFirst.slice(1)
+      vars = {
+        firstName: firstCapitalized,
+        first_name: firstCapitalized,
+        firstname: firstCapitalized,
+        lastName: '',
+        last_name: '',
+        lastname: '',
+        fullName: firstCapitalized,
+        full_name: firstCapitalized,
+        name: firstCapitalized,
+        email: to,
+        company: 'GoFox',
+        company_name: 'GoFox',
+        deal_name: 'Enterprise Contract',
+      }
     }
+  }
+  if (Object.keys(vars).length) {
+    subject = renderVariables(subject, vars).output
+    html = renderVariables(html, vars).output
+    text = renderVariables(text, vars).output
   }
   try {
     const result = await sendGmail(c.env, user.org_id, {
@@ -2862,35 +2889,6 @@ app.post('/api/email/render', async (c) => {
     availableVariables: EMAIL_VARIABLES,
     missing: [...new Set([...renderedSubject.missing, ...renderedHtml.missing, ...renderedText.missing])],
   })
-})
-
-/** Stripo Plugin Authentication Proxy */
-app.post('/api/stripo/auth', async (c) => {
-  const body = await readBody<{ pluginId?: string; secretKey?: string }>(c)
-  const pluginId = String(body.pluginId ?? '').trim()
-  const secretKey = String(body.secretKey ?? '').trim()
-
-  if (!pluginId || !secretKey) {
-    return fail(c, 'INVALID_INPUT', 'Both Plugin ID and Secret Key are required to authenticate with Stripo.', 400)
-  }
-
-  try {
-    const res = await fetch('https://plugins.stripo.email/api/v1/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pluginId, secretKey }),
-    })
-
-    if (!res.ok) {
-      const errText = await res.text()
-      return fail(c, 'STRIPO_AUTH_FAILED', `Stripo auth failed (${res.status}): ${errText}`, 401)
-    }
-
-    const data = (await res.json()) as any
-    return c.json({ success: true, token: data.token ?? data })
-  } catch (err: any) {
-    return fail(c, 'STRIPO_CONNECT_ERROR', err?.message ?? 'Failed to connect to Stripo server', 502)
-  }
 })
 
 // ------------------------------------------------------------------- users

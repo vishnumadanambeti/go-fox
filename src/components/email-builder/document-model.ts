@@ -21,8 +21,67 @@ export function createEmptyDocument(): EmailDocument {
   }
 }
 
+export function isEmailDocument(value: unknown): value is EmailDocument {
+  if (!value || typeof value !== 'object') return false
+  const document = value as Partial<EmailDocument>
+  if (
+    document.schemaVersion !== 1 ||
+    !document.settings ||
+    !Number.isFinite(document.settings.width) ||
+    !Array.isArray(document.sections)
+  ) {
+    return false
+  }
+
+  const ids = new Set<string>()
+  const addId = (id: unknown) => {
+    if (typeof id !== 'string' || !id || ids.has(id)) return false
+    ids.add(id)
+    return true
+  }
+
+  for (const section of document.sections) {
+    if (
+      !section ||
+      section.type !== 'section' ||
+      !addId(section.id) ||
+      !Array.isArray(section.columns)
+    ) {
+      return false
+    }
+
+    for (const column of section.columns) {
+      if (
+        !column ||
+        !addId(column.id) ||
+        !Number.isFinite(column.width) ||
+        !Array.isArray(column.blocks)
+      ) {
+        return false
+      }
+
+      for (const block of column.blocks) {
+        if (
+          !block ||
+          !addId(block.id) ||
+          typeof block.type !== 'string' ||
+          !block.content ||
+          typeof block.content !== 'object'
+        ) {
+          return false
+        }
+      }
+    }
+  }
+
+  return true
+}
+
 export function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  const suffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  return `${prefix}-${suffix}`
 }
 
 export function addSection(document: EmailDocument, columnWidths: number[] = [100]): EmailDocument {
@@ -48,6 +107,32 @@ export function removeSection(document: EmailDocument, sectionId: string): Email
   }
 }
 
+export function duplicateSection(document: EmailDocument, sectionId: string): EmailDocument {
+  const sectionIndex = document.sections.findIndex((section) => section.id === sectionId)
+  if (sectionIndex < 0) return document
+
+  const section = structuredClone(document.sections[sectionIndex])
+  section.id = generateId('section')
+  section.columns = section.columns.map((column) => {
+    const duplicatedColumn = structuredClone(column)
+    duplicatedColumn.id = generateId('column')
+    duplicatedColumn.blocks = duplicatedColumn.blocks.map((block) => ({
+      ...block,
+      id: generateId('block'),
+    }))
+    return duplicatedColumn
+  })
+
+  return {
+    ...document,
+    sections: [
+      ...document.sections.slice(0, sectionIndex + 1),
+      section,
+      ...document.sections.slice(sectionIndex + 1),
+    ],
+  }
+}
+
 export function updateSection(document: EmailDocument, sectionId: string, updates: Partial<Section>): EmailDocument {
   return {
     ...document,
@@ -58,6 +143,15 @@ export function updateSection(document: EmailDocument, sectionId: string, update
 }
 
 export function reorderSections(document: EmailDocument, fromIndex: number, toIndex: number): EmailDocument {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= document.sections.length ||
+    toIndex >= document.sections.length ||
+    fromIndex === toIndex
+  ) {
+    return document
+  }
   const sections = [...document.sections]
   const [moved] = sections.splice(fromIndex, 1)
   sections.splice(toIndex, 0, moved)
@@ -73,6 +167,19 @@ export function addBlockToColumn(
   columnId: string,
   block: Block
 ): EmailDocument {
+  if (
+    !document.sections.some(
+      (section) =>
+        section.id === sectionId &&
+        section.columns.some((column) => column.id === columnId)
+    ) ||
+    document.sections.some((section) =>
+      section.columns.some((column) => column.blocks.some((item) => item.id === block.id))
+    )
+  ) {
+    return document
+  }
+
   return {
     ...document,
     sections: document.sections.map((section) => {
@@ -172,15 +279,22 @@ export function moveBlock(
   targetColumnId: string,
   targetIndex: number
 ): EmailDocument {
-  let movedBlock: Block | null = null
+  const targetSection = document.sections.find((section) => section.id === targetSectionId)
+  const targetColumn = targetSection?.columns.find((column) => column.id === targetColumnId)
+  if (!targetColumn) return document
+  const sourceLocation = findBlockLocation(document, blockId)
+  if (!sourceLocation) return document
+  const movedBlock = document.sections
+    .find((section) => section.id === sourceLocation.sectionId)
+    ?.columns.find((column) => column.id === sourceLocation.columnId)
+    ?.blocks[sourceLocation.index]
+  if (!movedBlock) return document
 
   // Remove block from original location
   const sectionsWithoutBlock = document.sections.map((section) => ({
     ...section,
     columns: section.columns.map((column) => {
-      const blockIndex = column.blocks.findIndex((b) => b.id === blockId)
-      if (blockIndex !== -1) {
-        movedBlock = column.blocks[blockIndex]
+      if (column.id === sourceLocation.columnId && section.id === sourceLocation.sectionId) {
         return {
           ...column,
           blocks: column.blocks.filter((b) => b.id !== blockId),
@@ -189,8 +303,6 @@ export function moveBlock(
       return column
     }),
   }))
-
-  if (!movedBlock) return document
 
   // Add block to new location
   return {
@@ -202,7 +314,7 @@ export function moveBlock(
         columns: section.columns.map((column) => {
           if (column.id !== targetColumnId) return column
           const newBlocks = [...column.blocks]
-          newBlocks.splice(targetIndex, 0, movedBlock!)
+          newBlocks.splice(Math.max(0, Math.min(targetIndex, newBlocks.length)), 0, movedBlock)
           return {
             ...column,
             blocks: newBlocks,

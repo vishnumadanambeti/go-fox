@@ -11,6 +11,7 @@ export type EmailPreset = {
   previewText: string
   description: string
   accent: string
+  tier?: 'premium'
   html: string
   plain: string
 }
@@ -35,6 +36,186 @@ const H = (text: string, color = '#101828', size = 26) =>
   `<h1 style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:${size}px;line-height:1.25;color:${color};letter-spacing:-.4px">${text}</h1>`
 
 export const EMAIL_PRESETS: EmailPreset[] = [
+  {
+    slug: 'premium-quarterly-brief',
+    name: 'Quarterly Momentum Brief',
+    category: 'Corporate',
+    subject: '{{company_name}} · your {{reporting_period}} in review',
+    previewText: 'A clear, considered summary of the numbers that matter.',
+    description: 'An editorial executive update with a KPI scorecard and a focused next step.',
+    accent: '#176B5B',
+    tier: 'premium',
+    html: wrap(`
+<tr><td style="background:#132A2A;padding:34px 38px 30px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;letter-spacing:1.8px;color:#A9D7C8">FIELDNOTES&nbsp; / &nbsp;{{reporting_period}}</td>
+    <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#C2D3CD">{{company_name}}</td>
+  </tr></table>
+  <h1 style="margin:32px 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:32px;font-weight:400;line-height:1.2;color:#ffffff">A quarter of<br>meaningful progress.</h1>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.7;color:#C2D3CD">A concise look at the work, momentum, and priorities shaping what comes next.</p>
+</td></tr>
+<tr><td style="padding:28px 38px 8px">
+  <p style="margin:0 0 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.7;color:#475467">Hi {{first_name}}, here is your {{reporting_period}} snapshot. Update each metric with your latest verified numbers before sending.</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #E5EAE7;border-bottom:1px solid #E5EAE7">
+    <tr>
+      <td width="33%" style="padding:18px 10px 18px 0;vertical-align:top"><div style="font-family:Georgia,serif;font-size:25px;color:#176B5B">{{metric_one_value}}</div><div style="margin-top:5px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.4;color:#66756F">{{metric_one_label}}</div></td>
+      <td width="33%" style="padding:18px 10px;vertical-align:top;border-left:1px solid #E5EAE7"><div style="font-family:Georgia,serif;font-size:25px;color:#176B5B">{{metric_two_value}}</div><div style="margin-top:5px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.4;color:#66756F">{{metric_two_label}}</div></td>
+      <td width="33%" style="padding:18px 0 18px 10px;vertical-align:top;border-left:1px solid #E5EAE7"><div style="font-family:Georgia,serif;font-size:25px;color:#176B5B">{{metric_three_value}}</div><div style="margin-top:5px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.4;color:#66756F">{{metric_three_label}}</div></td>
+    </tr>
+  </table>
+  <h2 style="margin:24px 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:400;color:#172B28">The focus for next quarter</h2>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.7;color:#66756F">{{next_quarter_priority}}</p>
+</td></tr>
+<tr><td style="padding:22px 38px 36px">${button('View the full report', '{{report_url}}', '#176B5B')}</td></tr>`),
+    plain: 'Hi {{first_name}},\n\nHere is your {{reporting_period}} snapshot:\n{{metric_one_label}}: {{metric_one_value}}\n{{metric_two_label}}: {{metric_two_value}}\n{{metric_three_label}}: {{metric_three_value}}\n\nNext quarter: {{next_quarter_priority}}\n\nView the full report: {{report_url}}',
+  },
+  {
+    slug: 'premium-modern-operator',
+    name: 'The Modern Operator',
+    category: 'Newsletter',
+    subject: 'A thoughtful read for {{issue_date}}',
+    previewText: 'One useful idea, a practical playbook, and a note from our team.',
+    description: 'A refined editorial newsletter with a featured story and a clean reading hierarchy.',
+    accent: '#B36A45',
+    tier: 'premium',
+    html: wrap(`
+<tr><td style="padding:26px 38px 20px;border-bottom:1px solid #EAE4DC">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="font-family:Georgia,'Times New Roman',serif;font-size:19px;color:#29251F">The Modern Operator</td>
+    <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1px;color:#8A8176">{{issue_date}}</td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:32px 38px 12px">
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#B36A45">IDEAS FOR THE WORK AHEAD</div>
+  <h1 style="margin:12px 0 12px;font-family:Georgia,'Times New Roman',serif;font-size:29px;font-weight:400;line-height:1.25;color:#29251F">{{featured_headline}}</h1>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.75;color:#716A61">{{featured_summary}}</p>
+</td></tr>
+<tr><td style="padding:18px 38px 8px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3ED;border-radius:10px">
+    <tr><td style="padding:20px 22px">
+      <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#B36A45">THE PRACTICAL TAKEAWAY</div>
+      <p style="margin:9px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.55;color:#39342D">{{practical_takeaway}}</p>
+    </td></tr>
+  </table>
+</td></tr>
+<tr><td style="padding:20px 38px 4px">
+  <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;color:#39342D">In this issue</p>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.9;color:#716A61">01 &nbsp; {{story_one_title}}<br>02 &nbsp; {{story_two_title}}<br>03 &nbsp; A note from {{sender_name}}</p>
+</td></tr>
+<tr><td style="padding:22px 38px 36px">${button('Read the full edition', '{{newsletter_url}}', '#29251F')}</td></tr>`),
+    plain: 'The Modern Operator · {{issue_date}}\n\n{{featured_headline}}\n{{featured_summary}}\n\nPractical takeaway: {{practical_takeaway}}\n\nIn this issue:\n1. {{story_one_title}}\n2. {{story_two_title}}\n\nRead the full edition: {{newsletter_url}}',
+  },
+  {
+    slug: 'premium-private-preview',
+    name: 'Private Preview',
+    category: 'Promotional',
+    subject: 'A first look, just for you',
+    previewText: 'A considered introduction to {{product_name}}.',
+    description: 'A quiet, high-contrast product reveal with a clear feature story and one primary action.',
+    accent: '#8E7CFF',
+    tier: 'premium',
+    html: wrap(`
+<tr><td style="background:#171821;padding:30px 38px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;color:#E8E5FF">{{brand_name}}</td>
+    <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:1.5px;color:#A6A4B5">PRIVATE PREVIEW</td>
+  </tr></table>
+  <div style="margin-top:42px;font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#B9AEFF">INTRODUCING</div>
+  <h1 style="margin:10px 0 10px;font-family:Georgia,'Times New Roman',serif;font-size:34px;font-weight:400;line-height:1.15;color:#ffffff">{{product_name}}</h1>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.7;color:#C4C2D0">{{product_tagline}}</p>
+</td></tr>
+<tr><td style="padding:28px 38px 8px">
+  <p style="margin:0 0 22px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.75;color:#475467">Hi {{first_name}}, we made this for teams who want a calmer, clearer way to move work forward. Here is what is ready for you to explore.</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+    <tr><td width="34" style="vertical-align:top;padding:0 12px 18px 0"><div style="width:28px;height:28px;border-radius:50%;background:#F0EEFF;text-align:center;line-height:28px;font-family:Arial;font-size:12px;font-weight:700;color:#6554C0">01</div></td><td style="vertical-align:top;padding-bottom:18px"><div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#20212A">{{feature_one_title}}</div><div style="margin-top:4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#667085">{{feature_one_description}}</div></td></tr>
+    <tr><td width="34" style="vertical-align:top;padding:0 12px 18px 0"><div style="width:28px;height:28px;border-radius:50%;background:#F0EEFF;text-align:center;line-height:28px;font-family:Arial;font-size:12px;font-weight:700;color:#6554C0">02</div></td><td style="vertical-align:top;padding-bottom:18px"><div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#20212A">{{feature_two_title}}</div><div style="margin-top:4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#667085">{{feature_two_description}}</div></td></tr>
+  </table>
+</td></tr>
+<tr><td style="padding:4px 38px 36px">${button('Explore the preview', '{{product_url}}', '#6554C0')}</td></tr>`),
+    plain: 'A first look at {{product_name}}\n\nHi {{first_name}}, {{product_tagline}}\n\n{{feature_one_title}}: {{feature_one_description}}\n{{feature_two_title}}: {{feature_two_description}}\n\nExplore the preview: {{product_url}}',
+  },
+  {
+    slug: 'premium-product-edit',
+    name: 'The Product Edit',
+    category: 'E-Commerce',
+    subject: 'A closer look at {{product_name}}',
+    previewText: 'Thoughtful details, made to fit your everyday.',
+    description: 'A minimal product feature with editorial copy, item details, and a focused shopping action.',
+    accent: '#A56B48',
+    tier: 'premium',
+    html: wrap(`
+<tr><td style="background:#F3EFE9;padding:30px 38px 28px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+    <td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;letter-spacing:1.5px;color:#40362E">{{brand_name}}</td>
+    <td align="right" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:1px;color:#85786C">THE PRODUCT EDIT</td>
+  </tr></table>
+  <h1 style="margin:34px 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:31px;font-weight:400;line-height:1.2;color:#302820">{{product_name}}</h1>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.65;color:#75695D">{{product_tagline}}</p>
+</td></tr>
+<tr><td style="padding:26px 38px 10px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-bottom:1px solid #E9E4DE">
+    <tr><td style="padding:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.2px;color:#A56B48">DESIGNED WITH INTENTION</td><td align="right" style="padding:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#302820">{{product_price}}</td></tr>
+  </table>
+  <p style="margin:18px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.75;color:#514940">{{product_description}}</p>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAF8F5;border-radius:8px">
+    <tr><td style="padding:15px 17px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.8;color:#62584E"><strong style="color:#302820">Details</strong><br>{{product_detail_one}}<br>{{product_detail_two}}<br>{{product_detail_three}}</td></tr>
+  </table>
+</td></tr>
+<tr><td style="padding:22px 38px 36px">${button('Discover the details', '{{product_url}}', '#302820')}</td></tr>`),
+    plain: '{{product_name}}\n\n{{product_tagline}}\n\n{{product_description}}\n\nDetails:\n{{product_detail_one}}\n{{product_detail_two}}\n{{product_detail_three}}\n\n{{product_price}}\nDiscover the details: {{product_url}}',
+  },
+  {
+    slug: 'premium-event-briefing',
+    name: 'The Briefing Room',
+    category: 'Events',
+    subject: 'Save your seat: {{event_name}}',
+    previewText: '{{event_date}} · A focused session with {{host_name}}.',
+    description: 'A polished event invitation with a clear agenda, host introduction, and calendar action.',
+    accent: '#3562A8',
+    tier: 'premium',
+    html: wrap(`
+<tr><td style="background:#14253F;padding:32px 38px 30px">
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:#AFC7EB">GOFOX&nbsp; / &nbsp;LIVE SESSION</div>
+  <h1 style="margin:20px 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:400;line-height:1.2;color:#ffffff">{{event_name}}</h1>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.65;color:#C8D4E5">{{event_subtitle}}</p>
+</td></tr>
+<tr><td style="padding:26px 38px 8px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F2F6FB;border-radius:10px">
+    <tr><td width="50%" style="padding:16px 18px;vertical-align:top"><div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;color:#718096">WHEN</div><div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;line-height:1.5;color:#14253F">{{event_date}}<br>{{event_time}} {{event_timezone}}</div></td>
+    <td width="50%" style="padding:16px 18px;vertical-align:top;border-left:1px solid #DDE6F0"><div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;color:#718096">HOST</div><div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#14253F">{{host_name}}</div><div style="margin-top:3px;font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#718096">{{host_title}}</div></td></tr>
+  </table>
+  <p style="margin:20px 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#1F2937">What we will cover</p>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.8;color:#5B6573">01 &nbsp; {{agenda_item_one}}<br>02 &nbsp; {{agenda_item_two}}<br>03 &nbsp; {{agenda_item_three}}</p>
+  <p style="margin:18px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.7;color:#5B6573">{{event_description}}</p>
+</td></tr>
+<tr><td style="padding:22px 38px 36px">${button('Reserve your place', '{{event_registration_url}}', '#3562A8')}</td></tr>`),
+    plain: '{{event_name}}\n{{event_subtitle}}\n\nWhen: {{event_date}} at {{event_time}} {{event_timezone}}\nHost: {{host_name}}, {{host_title}}\n\nWhat we will cover:\n1. {{agenda_item_one}}\n2. {{agenda_item_two}}\n3. {{agenda_item_three}}\n\nReserve your place: {{event_registration_url}}',
+  },
+  {
+    slug: 'premium-welcome-path',
+    name: 'A Better First Week',
+    category: 'Onboarding',
+    subject: 'Your first week with {{company_name}}',
+    previewText: 'A simple path to get set up, at your own pace.',
+    description: 'A welcoming onboarding sequence with a calm progress path and helpful next action.',
+    accent: '#3D7C77',
+    tier: 'premium',
+    html: wrap(`
+<tr><td style="background:#EAF3F0;padding:32px 38px 28px">
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#3D7C77">YOUR STARTING POINT</div>
+  <h1 style="margin:14px 0 8px;font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:400;line-height:1.2;color:#173A38">Good things take<br>a clear first step.</h1>
+  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.7;color:#56706D">Welcome, {{first_name}}. Here is a simple path to make {{company_name}} feel like home.</p>
+</td></tr>
+<tr><td style="padding:26px 38px 10px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+    <tr><td width="38" style="padding:0 12px 19px 0;vertical-align:top"><div style="width:30px;height:30px;border-radius:50%;background:#DCEBE5;text-align:center;line-height:30px;font-family:Arial;font-size:12px;font-weight:700;color:#28665E">1</div></td><td style="padding:5px 0 19px;border-bottom:1px solid #E8ECE9"><div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#243B39">Make it yours</div><div style="margin-top:4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#71817E">{{setup_step_one}}</div></td></tr>
+    <tr><td width="38" style="padding:18px 12px 19px 0;vertical-align:top"><div style="width:30px;height:30px;border-radius:50%;background:#DCEBE5;text-align:center;line-height:30px;font-family:Arial;font-size:12px;font-weight:700;color:#28665E">2</div></td><td style="padding:23px 0 19px;border-bottom:1px solid #E8ECE9"><div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#243B39">Bring your team in</div><div style="margin-top:4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#71817E">{{setup_step_two}}</div></td></tr>
+    <tr><td width="38" style="padding:18px 12px 0 0;vertical-align:top"><div style="width:30px;height:30px;border-radius:50%;background:#DCEBE5;text-align:center;line-height:30px;font-family:Arial;font-size:12px;font-weight:700;color:#28665E">3</div></td><td style="padding:23px 0 0"><div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#243B39">Choose your next goal</div><div style="margin-top:4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6;color:#71817E">{{setup_step_three}}</div></td></tr>
+  </table>
+</td></tr>
+<tr><td style="padding:24px 38px 36px">${button('Continue setup', '{{workspace_url}}', '#3D7C77')}</td></tr>`),
+    plain: 'Welcome, {{first_name}}.\n\nHere is a simple path to get started with {{company_name}}:\n\n1. Make it yours: {{setup_step_one}}\n2. Bring your team in: {{setup_step_two}}\n3. Choose your next goal: {{setup_step_three}}\n\nContinue setup: {{workspace_url}}',
+  },
   {
     slug: 'welcome',
     name: 'Warm welcome',
@@ -1110,6 +1291,574 @@ export const EMAIL_PRESETS: EmailPreset[] = [
   <div style="text-align:center">${button('Read Full Customer Breakdown (PDF)', '{{case_study_url}}', '#4F46E5')}</div>
 </td></tr>`),
     plain: 'How {{case_study_company}} scaled 3.4x.\n\nRead case study: {{case_study_url}}',
+  },
+  {
+    slug: "welcome-vip-onboarding",
+    name: "Welcome to GoFox VIP: Your 30-Day Launchpad",
+    category: "Welcome",
+    subject: "Welcome to GoFox VIP, {{first_name}} — Your 30-Day Launchpad 🚀",
+    previewText: "Everything you need to launch your CRM pipeline and invite your team in under 5 minutes.",
+    description: "Executive onboarding email with 3 clear setup steps, team invitation trigger, and dedicated success manager card.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="background:#142D4E;padding:36px;color:#ffffff;text-align:center">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#93C5FD">VIP ONBOARDING</div>
+  <h1 style="margin:12px 0 6px;font-family:Arial;font-size:28px">Welcome to GoFox, {{first_name}}</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#BFDBFE">Your workspace for {{company_name}} is ready. Let's get you set up for success.</p>
+</td></tr>
+<tr><td style="padding:32px 36px">
+  <p style="margin:0 0 16px;font-family:Arial;font-size:15px;line-height:1.6;color:#172B4D">Hi {{first_name}}, thank you for choosing GoFox CRM. Here are the 3 quick steps to achieve full pipeline visibility this week:</p>
+  <table role="presentation" width="100%" style="margin:20px 0">
+    <tr><td style="padding:10px 0;font-family:Arial;font-size:14px;color:#172B4D"><strong>1. Connect your mailbox:</strong> Sync Gmail or Outlook in 1 click for instant email tracking.</td></tr>
+    <tr><td style="padding:10px 0;font-family:Arial;font-size:14px;color:#172B4D"><strong>2. Import your leads:</strong> Upload your CSV or sync your current spreadsheet effortlessly.</td></tr>
+    <tr><td style="padding:10px 0;font-family:Arial;font-size:14px;color:#172B4D"><strong>3. Invite your teammates:</strong> Collaborate on deals with real-time activities and notes.</td></tr>
+  </table>
+  <div style="text-align:center;margin-top:24px">${button('Go to Your Dashboard', '{{dashboard_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "Welcome to GoFox, {{first_name}}!\n\nAccess your workspace: {{dashboard_url}}",
+  },
+  {
+    slug: "welcome-founder-letter",
+    name: "A Personal Welcome from the CEO",
+    category: "Welcome",
+    subject: "Welcome to GoFox (from our CEO)",
+    previewText: "Why we built GoFox, what to expect, and how to reach me directly.",
+    description: "High-touch plain-style CEO letter establishing trust, mission, and direct accessibility.",
+    accent: "#0D9488",
+    html: wrap(`
+<tr><td style="padding:36px;font-family:Arial;font-size:15px;line-height:1.7;color:#172B4D">
+  <p style="margin:0 0 16px">Hi {{first_name}},</p>
+  <p style="margin:0 0 16px">I wanted to send a quick personal note to welcome you and {{company_name}} to GoFox CRM.</p>
+  <p style="margin:0 0 16px">We built GoFox because enterprise sales and marketing tools have become too bloated, slow, and complex. Our goal is simple: give modern teams the fastest, most delightful system of action to close more revenue with zero friction.</p>
+  <p style="margin:0 0 16px">If you ever have any feedback or run into any hurdles, hit reply directly to this email — it lands directly in my personal inbox.</p>
+  <p style="margin:24px 0 4px;font-weight:700">Vishnu Madanambeti</p>
+  <p style="margin:0;font-size:13px;color:#718096">CEO & Co-founder, GoFox</p>
+</td></tr>`),
+    plain: "Hi {{first_name}},\n\nWelcome to GoFox. Hit reply anytime to reach me directly.\n\nVishnu, CEO",
+  },
+  {
+    slug: "newsletter-weekly-digest",
+    name: "The Revenue Dispatch: Weekly Executive Digest",
+    category: "Newsletter",
+    subject: "The Revenue Dispatch #42: Inbound Strategies for Q4 📈",
+    previewText: "Top 3 takeaways on multi-channel attribution and outbound reply rates.",
+    description: "Clean newsletter layout with hero takeaway, 3 bulleted articles, and quick polls.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="background:#142D4E;padding:32px 36px;color:#ffffff">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#93C5FD">THE REVENUE DISPATCH #42</div>
+  <h1 style="margin:10px 0 6px;font-family:Arial;font-size:24px">How Top Teams Hit Inbound Quota</h1>
+</td></tr>
+<tr><td style="padding:28px 36px">
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14.5px;line-height:1.6;color:#172B4D">Happy Thursday {{first_name}}! Here is your 3-minute executive download of what is moving the needle in B2B growth this week:</p>
+  <div style="border-left:3px solid #2563EB;padding-left:16px;margin:18px 0">
+    <h3 style="margin:0 0 4px;font-family:Arial;font-size:15px;color:#142D4E">1. Why 90-second response times triple deal velocity</h3>
+    <p style="margin:0;font-family:Arial;font-size:13.5px;color:#718096">Teams connecting automated triggers to lead form submissions converted 3.2x more inbound opportunities.</p>
+  </div>
+  <div style="text-align:center;margin-top:24px">${button('Read Full Newsletter Online', '{{newsletter_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "The Revenue Dispatch #42\n\nRead online: {{newsletter_url}}",
+  },
+  {
+    slug: "newsletter-curated-insights",
+    name: "Curated Growth Insights & Benchmarks",
+    category: "Newsletter",
+    subject: "Curated: 5 Growth Playbooks Top Teams Run This Month",
+    previewText: "A breakdown of high-performing email templates and pipeline automations.",
+    description: "Modern two-column curated link digest with bookmark styling and stat badges.",
+    accent: "#2CA6A4",
+    html: wrap(`
+<tr><td style="padding:32px 36px;background:#F7F9FC;border-bottom:1px solid #E5EAF1">
+  <h2 style="margin:0;font-family:Arial;font-size:22px;color:#142D4E">Curated Growth Insights</h2>
+  <p style="margin:6px 0 0;font-family:Arial;font-size:13.5px;color:#718096">Issue 18 • Hand-picked for {{first_name}} at {{company_name}}</p>
+</td></tr>
+<tr><td style="padding:28px 36px">
+  <ul style="padding-left:20px;font-family:Arial;font-size:14px;line-height:1.8;color:#172B4D">
+    <li><strong>Playbook #1:</strong> The 4-step sequence that revitalized 400 cold accounts.</li>
+    <li><strong>Playbook #2:</strong> Dynamic personalization merge tokens that bypass spam filters.</li>
+    <li><strong>Playbook #3:</strong> How to calculate realistic customer acquisition costs.</li>
+  </ul>
+  <div style="text-align:center;margin-top:20px">${button('Explore the Library', '{{library_url}}', '#2CA6A4')}</div>
+</td></tr>`),
+    plain: "Curated Growth Insights Issue 18.\n\nExplore library: {{library_url}}",
+  },
+  {
+    slug: "marketing-lead-magnet",
+    name: "Lead Magnet Delivery: Enterprise Playbook",
+    category: "Marketing",
+    subject: "Here is your copy: The Enterprise SaaS Playbook 📘",
+    previewText: "Download your 45-page blueprint to scale revenue operations in 2026.",
+    description: "High-converting asset delivery template with cover preview card and secondary CTA.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="padding:36px;text-align:center">
+  <div style="font-family:Arial;font-size:11px;font-weight:700;letter-spacing:1px;color:#2563EB">DOWNLOAD READY</div>
+  <h1 style="margin:10px 0 8px;font-family:Arial;font-size:26px;color:#142D4E">Your Free Guide Is Here</h1>
+  <p style="margin:0 auto 20px;max-width:440px;font-family:Arial;font-size:14px;color:#718096">Hi {{first_name}}, thanks for requesting The Enterprise SaaS Playbook. Your download link is below.</p>
+  ${button('Download Free PDF (45 Pages)', '{{download_url}}', '#2563EB')}
+</td></tr>`),
+    plain: "Hi {{first_name}},\n\nDownload your free guide: {{download_url}}",
+  },
+  {
+    slug: "marketing-benchmark-report",
+    name: "Industry Benchmark Report & Data Insights",
+    category: "Marketing",
+    subject: "2026 CRM Conversion Benchmarks: How does your pipeline rank?",
+    previewText: "Compare your open, click, and closing rates against 2,500+ peers in B2B tech.",
+    description: "Data-driven marketing email featuring 3 large statistic callout boxes and benchmark comparison.",
+    accent: "#0D9488",
+    html: wrap(`
+<tr><td style="background:#0F172A;padding:36px;color:#ffffff;text-align:center">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#5EEAD4">2026 BENCHMARK STUDY</div>
+  <h1 style="margin:12px 0 8px;font-family:Arial;font-size:26px">Where Does {{company_name}} Rank?</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#94A3B8">Key metrics analyzed across 2,500+ high-growth B2B companies</p>
+</td></tr>
+<tr><td style="padding:28px 36px">
+  <table role="presentation" width="100%">
+    <tr>
+      <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;text-align:center;width:33%">
+        <div style="font-family:Arial;font-size:22px;font-weight:800;color:#2563EB">38.4%</div>
+        <div style="font-family:Arial;font-size:11px;color:#64748B;margin-top:4px">Avg Open Rate</div>
+      </td>
+      <td style="width:10px"></td>
+      <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;text-align:center;width:33%">
+        <div style="font-family:Arial;font-size:22px;font-weight:800;color:#0D9488">5.8%</div>
+        <div style="font-family:Arial;font-size:11px;color:#64748B;margin-top:4px">Avg Click Rate</div>
+      </td>
+      <td style="width:10px"></td>
+      <td style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:16px;text-align:center;width:33%">
+        <div style="font-family:Arial;font-size:22px;font-weight:800;color:#7C3AED">22.1%</div>
+        <div style="font-family:Arial;font-size:11px;color:#64748B;margin-top:4px">Close Rate</div>
+      </td>
+    </tr>
+  </table>
+  <div style="text-align:center;margin-top:24px">${button('View Interactive Benchmarks', '{{report_url}}', '#0D9488')}</div>
+</td></tr>`),
+    plain: "2026 CRM Benchmarks Report.\n\nView here: {{report_url}}",
+  },
+  {
+    slug: "promotional-exclusive-offer",
+    name: "Exclusive 30% Off Enterprise Upgrade",
+    category: "Promotional",
+    subject: "Special offer for {{company_name}}: 30% off GoFox Pro ⚡",
+    previewText: "Unlock unlimited automated sequences, custom roles, and dedicated IP warmups.",
+    description: "High-urgency promotional email with badge countdown and pricing comparison table.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="padding:36px;text-align:center">
+  <span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#EFF6FF;color:#2563EB;font-family:Arial;font-size:11px;font-weight:700">LIMITED TIME OFFER</span>
+  <h1 style="margin:12px 0 6px;font-family:Arial;font-size:28px;color:#142D4E">Upgrade & Save 30% This Quarter</h1>
+  <p style="margin:0 auto 20px;max-width:440px;font-family:Arial;font-size:14.5px;color:#718096">Hi {{first_name}}, lock in preferred annual pricing for your whole team before Friday midnight.</p>
+  ${button('Claim Your 30% Discount', '{{upgrade_url}}', '#2563EB')}
+</td></tr>`),
+    plain: "30% Off GoFox Pro for {{company_name}}.\n\nClaim offer: {{upgrade_url}}",
+  },
+  {
+    slug: "promotional-end-of-quarter",
+    name: "End of Quarter Pricing Special",
+    category: "Promotional",
+    subject: "End-of-quarter incentive: Lock in 2026 rates now",
+    previewText: "Save up to $1,800 annually when you finalize your subscription this week.",
+    description: "Clean business incentive format with savings calculation and account executive booking button.",
+    accent: "#142D4E",
+    html: wrap(`
+<tr><td style="padding:32px 36px">
+  <h2 style="margin:0 0 12px;font-family:Arial;font-size:22px;color:#142D4E">Quarter-End Preferred Terms</h2>
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14px;line-height:1.6;color:#172B4D">Hi {{first_name}}, as we wrap up this quarter, we are extending custom contract terms to teams scaling with GoFox CRM.</p>
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14px;line-height:1.6;color:#172B4D">Schedule a quick 10-minute review with your account manager to lock in these terms.</p>
+  ${button('Schedule Contract Review', '{{calendar_url}}', '#142D4E')}
+</td></tr>`),
+    plain: "Quarter-end pricing incentive for {{company_name}}.\n\nSchedule review: {{calendar_url}}",
+  },
+  {
+    slug: "product-launch-feature-ai",
+    name: "Introducing GoFox AI Copilot",
+    category: "Product Launch",
+    subject: "Meet GoFox AI Copilot: Automate Deals & Smart Follow-ups 🤖",
+    previewText: "Summarize calls, draft follow-up emails, and forecast pipeline in seconds.",
+    description: "Product feature launch template with hero screenshot placeholder, feature list, and try-now CTA.",
+    accent: "#7C3AED",
+    html: wrap(`
+<tr><td style="background:#1E1B4B;padding:40px 36px;text-align:center;color:#ffffff">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#C7D2FE">NEW FEATURE ANNOUNCEMENT</div>
+  <h1 style="margin:12px 0 8px;font-family:Arial;font-size:30px">Meet GoFox AI Copilot</h1>
+  <p style="margin:0;font-family:Arial;font-size:15px;color:#A5B4FC">Supercharge your sales workflows with native generative intelligence.</p>
+</td></tr>
+<tr><td style="padding:32px 36px">
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14.5px;line-height:1.6;color:#172B4D">Hi {{first_name}}, today we are launching our most requested update ever: AI Copilot inside GoFox.</p>
+  <div style="text-align:center;margin-top:24px">${button('Try AI Copilot Free', '{{ai_features_url}}', '#7C3AED')}</div>
+</td></tr>`),
+    plain: "Introducing GoFox AI Copilot!\n\nTry it now: {{ai_features_url}}",
+  },
+  {
+    slug: "product-launch-v2-announcement",
+    name: "GoFox 2.0 Major Platform Release",
+    category: "Product Launch",
+    subject: "GoFox 2.0 is Live: Faster, Smarter, Built for Scale 🚀",
+    previewText: "A completely redesigned visual canvas, lightning-fast sync, and new analytics.",
+    description: "Major release announcement with release notes bullet list and interactive walkthrough link.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="background:#142D4E;padding:36px;text-align:center;color:#ffffff">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1.5px;color:#93C5FD">MAJOR RELEASE</div>
+  <h1 style="margin:12px 0 6px;font-family:Arial;font-size:32px">GoFox 2.0 is Here</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#BFDBFE">Engineered for speed, precision, and enterprise scale.</p>
+</td></tr>
+<tr><td style="padding:30px 36px">
+  <p style="margin:0 0 16px;font-family:Arial;font-size:15px;line-height:1.6;color:#172B4D">Hi {{first_name}}, we completely rebuilt the GoFox experience to make your daily work faster and smoother.</p>
+  <div style="text-align:center;margin-top:24px">${button('Explore What is New in 2.0', '{{changelog_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "GoFox 2.0 is officially live.\n\nExplore changelog: {{changelog_url}}",
+  },
+  {
+    slug: "ecommerce-flash-sale",
+    name: "Flash Sale: 40% Off Storewide (24 Hours)",
+    category: "E-commerce",
+    subject: "FLASH SALE: 40% Off Everything (24 Hours Only) 🛍️",
+    previewText: "Don’t wait — stock is limited and discounts expire tonight at midnight.",
+    description: "Vibrant e-commerce promotional template with coupon box, product cards, and urgency pill.",
+    accent: "#EA580C",
+    html: wrap(`
+<tr><td style="background:#EA580C;padding:36px;text-align:center;color:#ffffff">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px">TODAY ONLY</div>
+  <h1 style="margin:10px 0 6px;font-family:Arial;font-size:32px">40% OFF STOREWIDE</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;opacity:0.9">Use code FLASH40 at checkout</p>
+</td></tr>
+<tr><td style="padding:32px 36px;text-align:center">
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14.5px;color:#172B4D">Hi {{first_name}}, our VIP flash sale is live for the next 24 hours only.</p>
+  ${button('Shop the Flash Sale', '{{shop_url}}', '#EA580C')}
+</td></tr>`),
+    plain: "Flash Sale: 40% Off with code FLASH40.\n\nShop here: {{shop_url}}",
+  },
+  {
+    slug: "ecommerce-back-in-stock",
+    name: "Back in Stock Notification",
+    category: "E-commerce",
+    subject: "Good news {{first_name}}: Your item is back in stock! ✨",
+    previewText: "The product you requested is back on our shelves. Grab yours before it sells out again.",
+    description: "High-conversion automated back-in-stock alert with clear product image, price, and instant checkout button.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="padding:32px 36px">
+  <div style="font-family:Arial;font-size:11px;font-weight:700;color:#2563EB">BACK IN STOCK</div>
+  <h2 style="margin:8px 0 12px;font-family:Arial;font-size:24px;color:#142D4E">Ready to Ship, {{first_name}}</h2>
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14.5px;line-height:1.6;color:#172B4D">The item on your notification list is officially back in inventory in our warehouse.</p>
+  <div style="text-align:center">${button('Complete Your Order Now', '{{checkout_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "Your item is back in stock!\n\nOrder now: {{checkout_url}}",
+  },
+  {
+    slug: "ecommerce-review-request",
+    name: "Customer Review & Feedback Request ($15 Reward)",
+    category: "E-commerce",
+    subject: "How did we do, {{first_name}}? Share feedback & get $15 🎁",
+    previewText: "Leave a 60-second review on your recent order and receive a $15 store voucher.",
+    description: "Star-rating click grid email encouraging post-purchase reviews and organic UGC.",
+    accent: "#D97706",
+    html: wrap(`
+<tr><td style="padding:36px;text-align:center">
+  <div style="font-size:28px;margin-bottom:8px">⭐⭐⭐⭐⭐</div>
+  <h1 style="margin:0 0 8px;font-family:Arial;font-size:24px;color:#142D4E">How was your experience?</h1>
+  <p style="margin:0 auto 20px;max-width:440px;font-family:Arial;font-size:14px;color:#718096">Hi {{first_name}}, take 60 seconds to review your recent order and we'll send a $15 gift voucher.</p>
+  ${button('Leave a Review & Claim $15', '{{review_url}}', '#D97706')}
+</td></tr>`),
+    plain: "How was your recent experience?\n\nLeave review: {{review_url}}",
+  },
+  {
+    slug: "saas-trial-expiring",
+    name: "Trial Expiring: Keep Your Pipelines Active",
+    category: "SaaS",
+    subject: "Your GoFox Pro trial expires in 48 hours ⏳",
+    previewText: "Don’t lose your saved contacts, active automated sequences, and pipeline metrics.",
+    description: "High-urgency SaaS trial conversion email highlighting existing pipeline data at risk.",
+    accent: "#DC2626",
+    html: wrap(`
+<tr><td style="background:#FEF2F2;border-bottom:1px solid #FEE2E2;padding:32px 36px;text-align:center">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#DC2626">TRIAL STATUS: 48 HOURS REMAINING</div>
+  <h1 style="margin:10px 0 6px;font-family:Arial;font-size:26px;color:#991B1B">Keep Your Pipeline Moving</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#B91C1C">Upgrade now to retain full access to your deals and sequences at {{company_name}}.</p>
+</td></tr>
+<tr><td style="padding:30px 36px;text-align:center">
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14.5px;color:#172B4D">Select a plan to ensure zero interruption for you and your team.</p>
+  ${button('Select Plan & Retain Access', '{{upgrade_url}}', '#DC2626')}
+</td></tr>`),
+    plain: "Your GoFox Pro trial expires in 48 hours.\n\nKeep access: {{upgrade_url}}",
+  },
+  {
+    slug: "saas-monthly-usage-summary",
+    name: "Monthly Executive Usage & ROI Briefing",
+    category: "SaaS",
+    subject: "Your monthly GoFox report: {{deals_closed}} deals closed 📊",
+    previewText: "See your team’s response time benchmarks, captured leads, and outbound velocity for this month.",
+    description: "Executive SaaS usage digest featuring 4 statistical KPIs and top performer callout.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="background:#142D4E;padding:36px;color:#ffffff">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#93C5FD">MONTHLY EXECUTIVE BRIEFING</div>
+  <h1 style="margin:10px 0 6px;font-family:Arial;font-size:26px">Performance Summary for {{company_name}}</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#BFDBFE">Here is how your revenue engine performed over the last 30 days.</p>
+</td></tr>
+<tr><td style="padding:28px 36px">
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14.5px;color:#172B4D">Great momentum, {{first_name}}! Log in to view your complete pipeline forecasting.</p>
+  <div style="text-align:center">${button('View Full Analytics Dashboard', '{{analytics_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "Monthly report for {{company_name}}.\n\nView dashboard: {{analytics_url}}",
+  },
+  {
+    slug: "saas-feature-adoption",
+    name: "Feature Adoption: Automated Workflows",
+    category: "SaaS",
+    subject: "Tip: How to automate lead handoffs in GoFox in 2 minutes",
+    previewText: "Save 5+ hours every week by connecting webhook triggers directly to deal stages.",
+    description: "Educational SaaS product email with screenshot step-by-step walkthrough.",
+    accent: "#2CA6A4",
+    html: wrap(`
+<tr><td style="padding:32px 36px">
+  <div style="font-family:Arial;font-size:11px;font-weight:700;color:#2CA6A4">POWER USER TIP</div>
+  <h2 style="margin:8px 0 12px;font-family:Arial;font-size:24px;color:#142D4E">Automate Your Inbound Routing</h2>
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14.5px;line-height:1.6;color:#172B4D">Hi {{first_name}}, did you know you can automatically assign inbound leads based on territory or deal size?</p>
+  <div style="text-align:center;margin-top:20px">${button('Set Up Your First Workflow', '{{workflows_url}}', '#2CA6A4')}</div>
+</td></tr>`),
+    plain: "How to automate lead handoffs in GoFox.\n\nSet up now: {{workflows_url}}",
+  },
+  {
+    slug: "event-annual-summit",
+    name: "GoFox Forward: Annual Summit Registration",
+    category: "Event",
+    subject: "You are invited: GoFox Forward 2026 Summit 🎟️",
+    previewText: "Join 2,000+ sales and marketing leaders for a 2-day virtual conference on B2B revenue.",
+    description: "Conference invitation email with keynote speaker headshots, agenda tracks, and free registration link.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="background:#0F172A;padding:40px 36px;text-align:center;color:#ffffff">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#38BDF8">VIRTUAL SUMMIT • OCT 14-15</div>
+  <h1 style="margin:12px 0 8px;font-family:Arial;font-size:32px">GoFox Forward 2026</h1>
+  <p style="margin:0;font-family:Arial;font-size:15px;color:#94A3B8">The premier conference for modern revenue teams</p>
+</td></tr>
+<tr><td style="padding:32px 36px;text-align:center">
+  <p style="margin:0 0 20px;font-family:Arial;font-size:15px;color:#172B4D">Hi {{first_name}}, claim your complimentary pass before general tickets open.</p>
+  ${button('Claim Your Free Pass', '{{summit_url}}', '#2563EB')}
+</td></tr>`),
+    plain: "Invitation: GoFox Forward 2026 Summit.\n\nRegister: {{summit_url}}",
+  },
+  {
+    slug: "event-vip-dinner",
+    name: "Private Executive Dinner Invitation",
+    category: "Event",
+    subject: "Private invitation: Executive Dinner at SaaStr 🍷",
+    previewText: "An intimate 14-person dinner with top revenue leaders in San Francisco.",
+    description: "High-touch black-tie styled invitation for prospective enterprise clients and champions.",
+    accent: "#142D4E",
+    html: wrap(`
+<tr><td style="padding:40px;background:#FAFAFA;border:1px solid #E5E5E5;text-align:center">
+  <div style="font-family:Georgia,serif;font-style:italic;font-size:13px;color:#737373">Private Invitation</div>
+  <h1 style="margin:12px 0 10px;font-family:Georgia,serif;font-size:26px;color:#171717">Executive Roundtable & Dinner</h1>
+  <p style="margin:0 auto 24px;max-width:440px;font-family:Arial;font-size:14px;line-height:1.7;color:#404040">Hi {{first_name}}, you are cordially invited to join 12 fellow SaaS founders and revenue leaders for an intimate dinner discussion.</p>
+  ${button('RSVP for Private Dinner', '{{rsvp_url}}', '#171717')}
+</td></tr>`),
+    plain: "Private Executive Dinner Invitation.\n\nRSVP: {{rsvp_url}}",
+  },
+  {
+    slug: "webinar-live-training",
+    name: "Live Masterclass: Scaling Outbound to $10M ARR",
+    category: "Webinar",
+    subject: "Live Masterclass: How to scale outbound pipeline to $10M ARR 🎯",
+    previewText: "Join our VP of Sales this Wednesday for real campaign tear-downs and live Q&A.",
+    description: "Clean webinar registration page template with calendar reminder chip and speaker bio.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="padding:36px;background:#F0FDF4;border-bottom:1px solid #DCFCE7">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#16A34A">WEDNESDAY • 11:00 AM PST</div>
+  <h1 style="margin:10px 0 6px;font-family:Arial;font-size:26px;color:#166534">Scaling Outbound Pipeline to $10M ARR</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#15803D">Live teardowns, real sequence metrics, and open audience Q&A.</p>
+</td></tr>
+<tr><td style="padding:28px 36px">
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14.5px;color:#172B4D">Hi {{first_name}}, reserve your virtual seat to receive the live stream link and slides.</p>
+  <div style="text-align:center">${button('Reserve My Seat (Free)', '{{webinar_url}}', '#16A34A')}</div>
+</td></tr>`),
+    plain: "Live Masterclass: Scaling Outbound to $10M ARR.\n\nReserve seat: {{webinar_url}}",
+  },
+  {
+    slug: "webinar-recording-replay",
+    name: "Masterclass Recording & Slide Deck Replay",
+    category: "Webinar",
+    subject: "Recording ready: Watch yesterday’s Sales Ops Masterclass 📺",
+    previewText: "Missed the live broadcast? Watch the complete 42-minute recording and download the templates.",
+    description: "Post-event follow-up email with embedded video preview image and resource links.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="padding:32px 36px">
+  <div style="font-family:Arial;font-size:11px;font-weight:700;color:#2563EB">EVENT ON-DEMAND</div>
+  <h2 style="margin:8px 0 12px;font-family:Arial;font-size:24px;color:#142D4E">The Recording is Ready</h2>
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14.5px;line-height:1.6;color:#172B4D">Hi {{first_name}}, thank you for registering! You can now watch the complete masterclass replay anytime.</p>
+  <div style="text-align:center">${button('Watch Recording & Download Slides', '{{replay_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "Webinar recording is available now.\n\nWatch replay: {{replay_url}}",
+  },
+  {
+    slug: "customer-engagement-nps",
+    name: "Customer Satisfaction & NPS Pulse Survey",
+    category: "Customer Engagement",
+    subject: "How are we doing, {{first_name}}? (1-minute survey) 💬",
+    previewText: "Your direct feedback shapes our weekly product roadmap for {{company_name}}.",
+    description: "0-10 interactive rating scale layout with instant one-click response capture.",
+    accent: "#2CA6A4",
+    html: wrap(`
+<tr><td style="padding:36px;text-align:center">
+  <h1 style="margin:0 0 8px;font-family:Arial;font-size:24px;color:#142D4E">How likely are you to recommend GoFox?</h1>
+  <p style="margin:0 auto 24px;max-width:440px;font-family:Arial;font-size:14px;color:#718096">Hi {{first_name}}, your feedback directly helps us improve your team’s daily experience.</p>
+  <div style="text-align:center">${button('Take 60-Second Survey', '{{survey_url}}', '#2CA6A4')}</div>
+</td></tr>`),
+    plain: "How are we doing, {{first_name}}?\n\nTake survey: {{survey_url}}",
+  },
+  {
+    slug: "customer-engagement-milestone",
+    name: "Customer Milestone Celebration",
+    category: "Customer Engagement",
+    subject: "🎉 Milestone reached: You just closed your 100th deal!",
+    previewText: "A celebratory salute from the entire GoFox team to your revenue champions.",
+    description: "Delightful celebration email with confetti styling, statistics badge, and gift code.",
+    accent: "#F59E0B",
+    html: wrap(`
+<tr><td style="background:#FFFBEB;padding:36px;text-align:center;border-bottom:1px solid #FEF3C7">
+  <div style="font-size:36px;margin-bottom:8px">🏆</div>
+  <h1 style="margin:0 0 6px;font-family:Arial;font-size:26px;color:#92400E">100 Deals Closed!</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#B45309">Congratulations to {{first_name}} and the team at {{company_name}}!</p>
+</td></tr>
+<tr><td style="padding:28px 36px;text-align:center">
+  <p style="margin:0 0 20px;font-family:Arial;font-size:14.5px;color:#172B4D">You are officially in the top 5% of all GoFox CRM workspaces.</p>
+  ${button('Share Milestone on LinkedIn', '{{share_url}}', '#F59E0B')}
+</td></tr>`),
+    plain: "Congratulations on closing your 100th deal!\n\nShare: {{share_url}}",
+  },
+  {
+    slug: "sales-executive-cold-outreach",
+    name: "Personalized Executive Cold Outreach",
+    category: "Sales",
+    subject: "Quick question regarding inbound pipeline at {{company_name}}",
+    previewText: "Noticed your team’s recent hiring wave — wanted to share a quick benchmark.",
+    description: "High-response plain-text style B2B sales sequence template with dynamic personalization tokens.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="padding:32px 36px;font-family:Arial;font-size:14.5px;line-height:1.7;color:#172B4D">
+  <p style="margin:0 0 16px">Hi {{first_name}},</p>
+  <p style="margin:0 0 16px">I noticed {{company_name}} has been expanding its go-to-market team over the last few months.</p>
+  <p style="margin:0 0 16px">Typically when teams scale at this pace, reps lose 3-5 hours weekly toggling between separate email sequencers and CRM fields.</p>
+  <p style="margin:0 0 20px">Would you be open to a quick 10-minute walkthrough next Tuesday to see how peers cut response times by 65%?</p>
+  ${button('Pick a Time on My Calendar', '{{calendar_url}}', '#2563EB')}
+</td></tr>`),
+    plain: "Hi {{first_name}},\n\nQuick question regarding inbound pipeline at {{company_name}}.\n\nBook time: {{calendar_url}}",
+  },
+  {
+    slug: "sales-meeting-followup",
+    name: "Post-Demo Follow-up & Next Steps Summary",
+    category: "Sales",
+    subject: "Great speaking today, {{first_name}} — Next steps & summary",
+    previewText: "Here is the customized rollout timeline, pricing quote, and sandbox login we reviewed.",
+    description: "Executive deal recap email with bulleted deliverables, proposal link, and mutual action plan.",
+    accent: "#142D4E",
+    html: wrap(`
+<tr><td style="padding:32px 36px">
+  <h2 style="margin:0 0 12px;font-family:Arial;font-size:22px;color:#142D4E">Demo Summary & Next Steps</h2>
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14.5px;line-height:1.6;color:#172B4D">Hi {{first_name}}, thank you for the time today. Here is the quick summary of what we covered:</p>
+  <ul style="margin:0 0 20px;padding-left:20px;font-family:Arial;font-size:14px;line-height:1.7;color:#172B4D">
+    <li>Complete mailbox sync for your 12 sales reps.</li>
+    <li>Dedicated onboarding kickoff scheduled for next Monday.</li>
+    <li>Locked-in annual enterprise quote attached below.</li>
+  </ul>
+  ${button('Review Customized Proposal', '{{proposal_url}}', '#142D4E')}
+</td></tr>`),
+    plain: "Demo recap & proposal for {{company_name}}.\n\nReview proposal: {{proposal_url}}",
+  },
+  {
+    slug: "transactional-magic-link",
+    name: "Secure One-Click Magic Login Link",
+    category: "Transactional",
+    subject: "Your GoFox secure sign-in link 🔐",
+    previewText: "Click the button below to instantly sign in to your GoFox account. Valid for 15 minutes.",
+    description: "High-security transactional login email with single-use magic link button and safety disclaimer.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="padding:36px;text-align:center">
+  <div style="font-family:Arial;font-size:11px;font-weight:700;color:#2563EB">SECURITY AUTHENTICATION</div>
+  <h1 style="margin:10px 0 8px;font-family:Arial;font-size:24px;color:#142D4E">Sign In to GoFox CRM</h1>
+  <p style="margin:0 auto 20px;max-width:420px;font-family:Arial;font-size:14px;color:#718096">Hi {{first_name}}, click below to securely sign in to your workspace. This link expires in 15 minutes.</p>
+  ${button('Sign In Instantly', '{{magic_link_url}}', '#2563EB')}
+</td></tr>`),
+    plain: "Sign in to GoFox:\n\n{{magic_link_url}}",
+  },
+  {
+    slug: "transactional-invoice-receipt",
+    name: "Official Payment Receipt & Tax Invoice",
+    category: "Transactional",
+    subject: "Payment receipt: Invoice #{{invoice_number}} confirmed",
+    previewText: "Thank you for your payment. Your receipt and downloadable PDF invoice are ready.",
+    description: "Formal financial receipt template with itemized summary table, tax info, and PDF download.",
+    accent: "#059669",
+    html: wrap(`
+<tr><td style="padding:32px 36px">
+  <div style="font-family:Arial;font-size:11px;font-weight:700;color:#059669">PAYMENT CONFIRMED</div>
+  <h2 style="margin:8px 0 12px;font-family:Arial;font-size:22px;color:#142D4E">Invoice #{{invoice_number}}</h2>
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14px;color:#718096">Hi {{first_name}}, we successfully received payment of {{invoice_amount}} for your GoFox subscription.</p>
+  ${button('Download Tax Invoice (PDF)', '{{invoice_pdf_url}}', '#059669')}
+</td></tr>`),
+    plain: "Invoice #{{invoice_number}} paid.\n\nDownload PDF: {{invoice_pdf_url}}",
+  },
+  {
+    slug: "hr-offer-letter",
+    name: "Formal Employment Offer Letter & Welcome",
+    category: "HR",
+    subject: "Offer of Employment: Welcome to {{company_name}}! 🎉",
+    previewText: "We are thrilled to extend an offer for you to join our growing team. Review your offer package inside.",
+    description: "Corporate HR offer template with role title, start date, compensation summary, and e-sign CTA.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="background:#142D4E;padding:36px;color:#ffffff;text-align:center">
+  <div style="font-family:Arial;font-size:11px;font-weight:800;letter-spacing:1px;color:#93C5FD">CAREER OPPORTUNITY</div>
+  <h1 style="margin:10px 0 6px;font-family:Arial;font-size:28px">Welcome to the Team, {{first_name}}!</h1>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#BFDBFE">We are excited to formally offer you the role of {{job_title}}.</p>
+</td></tr>
+<tr><td style="padding:30px 36px">
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14.5px;line-height:1.6;color:#172B4D">Hi {{first_name}}, the interview team was unanimously impressed with your background. Please review your full offer letter and benefits package below.</p>
+  <div style="text-align:center;margin-top:24px">${button('Review & E-Sign Offer Letter', '{{offer_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "Offer of Employment for {{first_name}}.\n\nReview offer: {{offer_url}}",
+  },
+  {
+    slug: "hr-company-allhands",
+    name: "All-Hands Meeting Agenda & Roadmap Review",
+    category: "HR",
+    subject: "Company All-Hands: Q4 Roadmap & OKR Review 🗓️",
+    previewText: "Agenda, live Zoom link, and anonymous Slido Q&A link for tomorrow’s company-wide gathering.",
+    description: "Internal communications template with structured agenda timeline and anonymous question box.",
+    accent: "#2CA6A4",
+    html: wrap(`
+<tr><td style="padding:32px 36px">
+  <div style="font-family:Arial;font-size:11px;font-weight:700;color:#2CA6A4">INTERNAL MEMO</div>
+  <h2 style="margin:8px 0 12px;font-family:Arial;font-size:22px;color:#142D4E">Tomorrow: Company All-Hands</h2>
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14px;line-height:1.6;color:#172B4D">Team, please join us for our monthly all-hands meeting covering product milestones and company metrics.</p>
+  ${button('Join Live Zoom Meeting', '{{zoom_url}}', '#2CA6A4')}
+</td></tr>`),
+    plain: "All-Hands Meeting Agenda.\n\nJoin: {{zoom_url}}",
+  },
+  {
+    slug: "hr-employee-onboarding",
+    name: "New Hire First Week Schedule & Checklist",
+    category: "HR",
+    subject: "Welcome to your first week at {{company_name}}, {{first_name}}! 👋",
+    previewText: "Here is your orientation schedule, buddy introduction, and IT account setup instructions.",
+    description: "Comprehensive day-by-day new employee orientation schedule with clear milestone checkmarks.",
+    accent: "#2563EB",
+    html: wrap(`
+<tr><td style="background:#EFF6FF;padding:32px 36px;border-bottom:1px solid #DBEAFE">
+  <h2 style="margin:0 0 8px;font-family:Arial;font-size:24px;color:#1E40AF">Welcome Aboard, {{first_name}}!</h2>
+  <p style="margin:0;font-family:Arial;font-size:14px;color:#3B82F6">Your first week orientation guide and checklist</p>
+</td></tr>
+<tr><td style="padding:28px 36px">
+  <p style="margin:0 0 16px;font-family:Arial;font-size:14px;line-height:1.6;color:#172B4D">We are thrilled to have you! Log in to our internal handbook to review your schedule and connect with your buddy.</p>
+  <div style="text-align:center;margin-top:20px">${button('Open First-Week Portal', '{{handbook_url}}', '#2563EB')}</div>
+</td></tr>`),
+    plain: "Welcome to your first week!\n\nOpen portal: {{handbook_url}}",
   },
 ]
 
