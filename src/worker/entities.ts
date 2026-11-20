@@ -385,6 +385,7 @@ export const ENTITIES: Record<string, EntityDef> = {
       { key: 'timezone', label: 'Timezone', half: true },
       { key: 'status', label: 'Status', type: 'select', options: ['draft', 'scheduled', 'sending', 'sent', 'paused', 'cancelled'], half: true },
       { key: 'content', label: 'Content', type: 'textarea' },
+      { key: 'body_html', label: 'Body HTML' },
     ],
   },
   email_templates: {

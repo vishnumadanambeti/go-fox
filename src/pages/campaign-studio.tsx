@@ -900,6 +900,7 @@ export function CampaignWizardPage({ campaignId }: { campaignId?: string } = {})
         content: form.content,
         list_id: form.list_id || (lists.length > 0 ? lists[0].id : 'all-contacts'),
         status: 'draft',
+        deleted_at: null,
       }
       if (targetId) {
         await patch(`/api/resources/campaigns/${targetId}`, payload)
@@ -1946,8 +1947,15 @@ export function CampaignDetailPage({ id }: { id: string }) {
     { label: 'SPAM COMPLAINTS', value: spamComplaints, color: 'text-rose-600 bg-rose-500/10 border-rose-500/20' },
   ]
 
-  // Real recipients from database; if none recorded, fallback to empty list
+  // Real recipients from database filtered by active tab and search query
   const filteredRecipients = recipients.filter((r) => {
+    if (activeMetricTab === 'opened') {
+      if (!r.opened_at && r.status !== 'opened' && r.status !== 'clicked') return false
+    } else if (activeMetricTab === 'clicked') {
+      if (!r.clicked_at && r.status !== 'clicked') return false
+    } else if (activeMetricTab === 'delivered') {
+      if (r.status !== 'delivered' && !r.delivered_at && r.status !== 'opened' && r.status !== 'clicked') return false
+    }
     if (!searchRecipients.trim()) return true
     const term = searchRecipients.toLowerCase()
     return (
@@ -2160,24 +2168,46 @@ export function CampaignDetailPage({ id }: { id: string }) {
                       {formatDateTime(r.opened_at || r.delivered_at || r.created_at)}
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      {r.status !== 'opened' && !r.opened_at ? (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await fetch(`/api/public/campaigns/open/${id}/${r.id}`)
-                              toast('Recorded open event for ' + r.email, 'good')
-                              await reload()
-                            } catch {
-                              toast('Failed to record open.', 'bad')
-                            }
-                          }}
-                          className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-2 py-1 rounded-md transition"
-                        >
-                          Trigger Open
-                        </button>
-                      ) : (
-                        <span className="text-[11px] font-medium text-emerald-600">Opened ✓</span>
-                      )}
+                      <div className="flex items-center justify-end gap-1.5">
+                        {r.status !== 'opened' && !r.opened_at && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await fetch(`/api/public/campaigns/open/${id}/${r.id}`)
+                                toast('Recorded open event for ' + r.email, 'good')
+                                await reload()
+                              } catch {
+                                toast('Failed to record open.', 'bad')
+                              }
+                            }}
+                            className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-2 py-1 rounded-md transition"
+                          >
+                            Trigger Open
+                          </button>
+                        )}
+                        {r.status !== 'clicked' && !r.clicked_at && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await fetch(`/api/public/campaigns/click/${id}/${r.id}?url=https://gofox.io`)
+                                toast('Recorded click event for ' + r.email, 'good')
+                                await reload()
+                              } catch {
+                                toast('Failed to record click.', 'bad')
+                              }
+                            }}
+                            className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-2 py-1 rounded-md transition"
+                          >
+                            Trigger Click
+                          </button>
+                        )}
+                        {(r.status === 'clicked' || r.clicked_at) && (
+                          <span className="text-[11px] font-medium text-emerald-600">Clicked ✓</span>
+                        )}
+                        {(r.status === 'opened' || r.opened_at) && !r.clicked_at && r.status !== 'clicked' && (
+                          <span className="text-[11px] font-medium text-rose-600">Opened ✓</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

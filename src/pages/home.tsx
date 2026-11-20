@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Users,
   Handshake,
+  Award,
   X,
 } from 'lucide-react'
 import { useApp, useFetch } from '../lib/app-context'

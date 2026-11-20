@@ -111,6 +111,7 @@ export function ensureDb(env: Env): Promise<void> {
         'ALTER TABLE leads ADD COLUMN photo_url TEXT',
         'ALTER TABLE leads ADD COLUMN avatar_url TEXT',
         'ALTER TABLE companies ADD COLUMN logo_url TEXT',
+        'ALTER TABLE campaigns ADD COLUMN body_html TEXT',
         // Slugs were globally unique, which broke tenant isolation and made re-creating a
         // soft-deleted slug throw a 500. Scope them per organisation and ignore deleted rows.
         'DROP INDEX IF EXISTS pages_slug_idx',

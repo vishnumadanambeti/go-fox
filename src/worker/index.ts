@@ -369,6 +369,7 @@ const EXTRAS: Record<string, string[]> = {
   contacts: ['photo_url', 'avatar_url'],
   leads: ['photo_url', 'avatar_url'],
   companies: ['logo_url'],
+  campaigns: ['content', 'body_html'],
 }
 
 function loadEntity(entity: string) {
@@ -1101,7 +1102,10 @@ app.post('/api/campaigns/:id/send', async (c) => {
   const user = c.get('user')
   const denied = requirePerm(c, 'marketing.write')
   if (denied) return denied
-  const result = await sendCampaign(c.env, user.org_id, c.req.param('id'), user.id)
+  const host = c.req.header('x-forwarded-host') || c.req.header('host')
+  const proto = c.req.header('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https')
+  const reqBase = host ? `${proto}://${host}` : undefined
+  const result = await sendCampaign(c.env, user.org_id, c.req.param('id'), user.id, reqBase)
   if (!result.ok) return fail(c, result.code ?? 'ERROR', result.message ?? 'Could not send.', result.code === 'NOT_FOUND' ? 404 : 409)
   return c.json(result)
 })

@@ -814,11 +814,15 @@ export async function sendCampaign(
   orgId: string,
   campaignId: string,
   actorId: string | null,
+  reqBase?: string,
 ): Promise<{ ok: boolean; code?: string; message?: string; audience?: number; suppressed?: number }> {
-  const campaign = await env.DB.prepare('SELECT * FROM campaigns WHERE id = ? AND org_id = ? AND deleted_at IS NULL')
+  const campaign = await env.DB.prepare('SELECT * FROM campaigns WHERE id = ? AND org_id = ?')
     .bind(campaignId, orgId)
     .first<Record<string, unknown>>()
   if (!campaign) return { ok: false, code: 'NOT_FOUND', message: 'Campaign not found.' }
+  if (campaign.deleted_at) {
+    await env.DB.prepare('UPDATE campaigns SET deleted_at = NULL WHERE id = ? AND org_id = ?').bind(campaignId, orgId).run()
+  }
   if (['sent', 'sending'].includes(String(campaign.status))) {
     return { ok: false, code: 'CONFLICT', message: 'This campaign has already been sent.' }
   }
@@ -863,7 +867,11 @@ export async function sendCampaign(
     .first<{ status: string }>()
 
   let sentSuccess = 0
-  const publicBase = String((env as unknown as Record<string, unknown>).PUBLIC_URL ?? (env as unknown as Record<string, unknown>).APP_BASE_URL ?? (env as unknown as Record<string, unknown>).APP_ORIGIN ?? '').trim() || 'http://localhost:3001'
+  const publicBase = (
+    reqBase ||
+    String((env as unknown as Record<string, unknown>).PUBLIC_URL ?? (env as unknown as Record<string, unknown>).APP_BASE_URL ?? (env as unknown as Record<string, unknown>).APP_ORIGIN ?? '').trim() ||
+    'http://localhost:3001'
+  ).replace(/\/$/, '')
 
   for (const m of eligible) {
     const recipientRowId = uid()
@@ -871,22 +879,34 @@ export async function sendCampaign(
     const lastName = String(m.last_name || '')
     const fullName = [m.first_name, m.last_name].filter(Boolean).join(' ') || firstName
 
-    // Personalize both Subject and Content with comprehensive variable support ({{firstName}}, {{first_name}}, {{name}}, {{email}})
+    // Personalize with comprehensive variable support ({{firstName}}, {{contact.first_name}}, {{fullName}}, {{email}}, etc.)
     const interpolateVars = (text: string) => {
-      return String(text || '')
-        .replace(/\{\{\s*first_?name\s*\}\}/gi, firstName)
-        .replace(/\{\{\s*last_?name\s*\}\}/gi, lastName)
-        .replace(/\{\{\s*(full_?)?name\s*\}\}/gi, fullName)
-        .replace(/\{\{\s*email\s*\}\}/gi, m.email || '')
-        .replace(/\{\{\s*company(_?name)?\s*\}\}/gi, 'GoFox')
+      if (!text) return ''
+      return String(text).replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*(?:\|\s*([^}]*))?\}\}/g, (_match, rawKey: string, fallback: string | undefined) => {
+        const key = rawKey.toLowerCase().replace(/^(contact|lead|user|recipient)\./i, '').replace(/[^a-z0-9]/g, '')
+        if (key === 'firstname' || key === 'first') return firstName
+        if (key === 'lastname' || key === 'last') return lastName
+        if (key === 'fullname' || key === 'name') return fullName
+        if (key === 'email') return m.email || ''
+        if (key === 'company' || key === 'companyname') return 'GoFox'
+        if (fallback !== undefined && fallback.trim() !== '') return fallback.trim()
+        return firstName
+      })
     }
 
     let subject = interpolateVars(String(campaign.subject || campaign.name || 'Update from GoFox'))
     let content = interpolateVars(String(campaign.body_html || campaign.content || campaign.subject || ''))
 
+    // Wrap links with click tracking
+    const trackableContent = content.replace(/<a\s+(?:[^>]*?\s+)?href=(["'])(https?:\/\/[^"']+)\1/gi, (_m, q, url) => {
+      if (url.includes('/api/public/campaigns/')) return _m
+      const clickUrl = `${publicBase}/api/public/campaigns/click/${campaignId}/${recipientRowId}?url=${encodeURIComponent(url)}`
+      return `<a href=${q}${clickUrl}${q}`
+    })
+
     // Inject transparent open tracking pixel with public URL resolution
     const openPixel = `<img src="${publicBase}/api/public/campaigns/open/${campaignId}/${recipientRowId}" width="1" height="1" style="display:none;width:1px;height:1px;opacity:0" alt="" />`
-    const fullHtml = `<div>${content}</div>${openPixel}`
+    const fullHtml = `<div>${trackableContent}</div>${openPixel}`
 
     if (channel === 'email' && gmailConnected) {
       try {
