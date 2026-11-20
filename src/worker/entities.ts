@@ -404,7 +404,7 @@ export const ENTITIES: Record<string, EntityDef> = {
       { key: 'name', label: 'Template name', required: true },
       { key: 'category', label: 'Category', half: true },
       { key: 'status', label: 'Status', type: 'select', options: ['draft', 'active', 'archived'], half: true },
-      { key: 'subject', label: 'Subject line', required: true },
+      { key: 'subject', label: 'Subject line', half: true },
       { key: 'preview_text', label: 'Preview text', half: true },
       { key: 'body', label: 'HTML body', type: 'textarea' },
       { key: 'html', label: 'Designed HTML', type: 'textarea' },

@@ -231,8 +231,8 @@ export function EmailStudioPage() {
     try {
       const seed =
         mode === 'plain'
-          ? { name: 'Untitled plain email', subject: '', html: '', plain_text: '', builder: 'plain' }
-          : { name: 'Untitled email', subject: '', html: '', builder: mode }
+          ? { name: 'Untitled plain email', subject: 'Untitled plain email', html: '', plain_text: '', builder: 'plain' }
+          : { name: 'Untitled email', subject: 'Untitled email', html: '', builder: mode }
       const result = await post<{ record?: Row }>('/api/resources/email_templates', {
         ...seed,
         category: 'General',
@@ -257,8 +257,8 @@ export function EmailStudioPage() {
       const result = await post<{ record?: Row; data?: Row }>('/api/resources/email_templates', {
         name: preset.name,
         category: preset.category,
-        subject: preset.subject,
-        preview_text: preset.previewText,
+        subject: preset.subject || preset.name || 'Untitled email',
+        preview_text: preset.previewText || '',
         html: preset.html,
         body: preset.html,
         plain_text: preset.plain,
