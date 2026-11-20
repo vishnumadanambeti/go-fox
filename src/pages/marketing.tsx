@@ -1,9 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  ArrowRight,
-  Calendar,
-  Check,
-  CheckCircle2,
   Code,
   Copy,
   ExternalLink,
@@ -14,7 +10,6 @@ import {
   Mail,
   Megaphone,
   MessageCircle,
-  Monitor,
   Pause,
   PieChart,
   Play,
@@ -22,7 +17,6 @@ import {
   Rocket,
   Send,
   Share2,
-  Smartphone,
   Sparkles,
   Trash2,
   Users,
@@ -40,7 +34,6 @@ import {
   EmptyState,
   ErrorState,
   FormRow,
-  IconButton,
   Kpi,
   Modal,
   PageHeader,

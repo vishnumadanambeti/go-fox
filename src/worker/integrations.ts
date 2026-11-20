@@ -120,8 +120,6 @@ async function json<T>(res: Response): Promise<T> {
   }
 }
 
-const bearer = (token: string) => ({ Authorization: `Bearer ${token}` })
-
 /** Verifies a pasted credential or multi-field config against the provider. Never stores anything itself. */
 export async function verifyCredential(provider: string, secret: string, config?: Record<string, unknown>): Promise<VerifyResult> {
   const key = secret.trim()

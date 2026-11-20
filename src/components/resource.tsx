@@ -829,7 +829,7 @@ export function ResourcePage({
                                   'bg-purple-500/15 text-purple-600 dark:bg-purple-500/25 dark:text-purple-300',
                                   'bg-amber-500/15 text-amber-600 dark:bg-amber-500/25 dark:text-amber-300',
                                   'bg-rose-500/15 text-rose-600 dark:bg-rose-500/25 dark:text-rose-300',
-                                ][Math.abs(row.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 5]
+                                ][Math.abs(row.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % 5]
                               )}
                             >
                               {initials(String(row[key] ?? '')) || '–'}

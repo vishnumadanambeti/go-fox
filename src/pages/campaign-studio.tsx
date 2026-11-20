@@ -1,22 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  AlertCircle,
   AlertTriangle,
   AlignLeft,
   AlignCenter,
   AlignRight,
   AlignJustify,
   ArrowLeft,
-  ArrowRight,
   Bold,
-  Calendar,
   Check,
   CheckCircle2,
   ChevronDown,
   Clock,
   Columns,
-  Copy,
-  ExternalLink,
   Eye,
   FileText,
   Filter,
@@ -29,44 +24,29 @@ import {
   Megaphone,
   MessageCircle,
   MessageSquare,
-  MoreVertical,
-  Pause,
-  Play,
   Plus,
-  Radio,
   RefreshCw,
   Rss,
   Search,
   Send,
   Shield,
   SlidersHorizontal,
-  Smartphone,
-  Sparkles,
   Split,
   Star,
   Trash2,
   Underline,
-  Users,
   X,
   Zap,
 } from 'lucide-react'
 import { del, patch, post, type Row } from '../lib/api'
 import { useApp, useFetch } from '../lib/app-context'
 import { Link, useNavigate } from '../lib/router'
-import { formatDate, formatDateTime, number, titleCase } from '../lib/format'
+import { formatDate, formatDateTime } from '../lib/format'
 import {
-  Badge,
-  Button,
-  Card,
   ConfirmDialog,
-  EmptyState,
   ErrorState,
-  FormRow,
-  IconButton,
   Modal,
-  PageHeader,
   Spinner,
-  StatusBadge,
   TableSkeleton,
   cx,
 } from '../components/ui'
@@ -76,7 +56,7 @@ import {
    ========================================================================= */
 
 export function CampaignsPage() {
-  const { me, meta, toast } = useApp()
+  const { me, toast } = useApp()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'archived' | 'trash'>('active')
   const [search, setSearch] = useState('')
@@ -107,7 +87,7 @@ export function CampaignsPage() {
 
   // Filter campaigns by tab
   const filteredCampaigns = useMemo(() => {
-    return campaigns.filter((c) => {
+    const list = campaigns.filter((c) => {
       // Tab filter
       if (activeTab === 'completed' && c.status !== 'sent' && c.status !== 'completed') return false
       if (activeTab === 'active' && (c.status === 'archived' || c.status === 'cancelled' || c.status === 'deleted')) return false
@@ -124,7 +104,13 @@ export function CampaignsPage() {
 
       return true
     })
-  }, [campaigns, activeTab, search])
+
+    return list.sort((a, b) => {
+      const valA = String(a[sortField] ?? '')
+      const valB = String(b[sortField] ?? '')
+      return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA)
+    })
+  }, [campaigns, activeTab, search, sortField, sortDir])
 
   const handleCreateSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
@@ -310,8 +296,8 @@ export function CampaignsPage() {
             {/* Sort Dropdown */}
             <button
               onClick={() => {
-                setSortField((f) => (f === 'created_at' ? 'name' : 'created_at'))
-                setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))
+                setSortField((f: 'created_at' | 'name') => (f === 'created_at' ? 'name' : 'created_at'))
+                setSortDir((d: 'asc' | 'desc') => (d === 'desc' ? 'asc' : 'desc'))
               }}
               className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-[12.5px] text-muted hover:bg-surface-2 hover:text-ink"
             >
@@ -1883,7 +1869,7 @@ export function CampaignWizardPage({ campaignId }: { campaignId?: string } = {})
    ========================================================================= */
 
 export function CampaignDetailPage({ id }: { id: string }) {
-  const { me, toast } = useApp()
+  const { toast } = useApp()
   const navigate = useNavigate()
   const [activeMetricTab, setActiveMetricTab] = useState<'delivered' | 'opened' | 'clicked' | 'replied' | 'sent'>('delivered')
   const [searchRecipients, setSearchRecipients] = useState('')

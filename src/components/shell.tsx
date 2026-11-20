@@ -691,7 +691,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                 aria-label="Profile menu"
               >
                 {me?.avatar_url || me?.photo_url ? (
-                  <img src={me.avatar_url || me.photo_url} alt="" className="size-full object-cover" />
+                  <img src={me.avatar_url || me.photo_url || ''} alt="" className="size-full object-cover" />
                 ) : (
                   (me?.name ?? 'V').charAt(0).toUpperCase()
                 )}
@@ -704,7 +704,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
                   <div className="flex items-center gap-2.5">
                     <div className="flex size-9 items-center justify-center rounded-full bg-[#ff7417] text-white font-bold text-[14px] overflow-hidden shrink-0">
                       {me?.avatar_url || me?.photo_url ? (
-                        <img src={me.avatar_url || me.photo_url} alt="" className="size-full object-cover" />
+                        <img src={me.avatar_url || me.photo_url || ''} alt="" className="size-full object-cover" />
                       ) : (
                         (me?.name ?? 'V').charAt(0).toUpperCase()
                       )}
@@ -1464,6 +1464,17 @@ function DialPad({ open, onClose }: { open: boolean; onClose: () => void }) {
                 </button>
               ) : null}
             </div>
+          </div>
+
+          {/* Agent Phone override */}
+          <div className="rounded-xl border border-line bg-surface p-2.5">
+            <div className="text-[10.5px] font-medium text-[#667085] mb-1">Your forwarding phone (optional)</div>
+            <input
+              className="w-full bg-transparent text-[12.5px] font-mono text-ink outline-none placeholder:text-[#98a2b3]"
+              value={agentPhone}
+              onChange={(e) => setAgentPhone(e.target.value)}
+              placeholder={me?.phone || 'Enter your phone number'}
+            />
           </div>
 
           {/* Keypad Grid */}

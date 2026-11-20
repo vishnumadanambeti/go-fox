@@ -98,6 +98,7 @@ export function ensureDb(env: Env): Promise<void> {
         'ALTER TABLE email_templates ADD COLUMN plain_text TEXT',
         'ALTER TABLE email_templates ADD COLUMN builder TEXT',
         'ALTER TABLE email_templates ADD COLUMN thumbnail TEXT',
+        'ALTER TABLE email_templates ADD COLUMN document_json TEXT',
         'ALTER TABLE companies ADD COLUMN size TEXT',
         'ALTER TABLE companies ADD COLUMN rating REAL DEFAULT 0',
         'ALTER TABLE leads ADD COLUMN lead_type TEXT NOT NULL DEFAULT "person"',

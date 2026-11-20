@@ -17,6 +17,8 @@ export default defineConfig({
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react'
           if (id.includes('node_modules/lucide-react')) return 'vendor-icons'
           if (id.includes('node_modules/@xyflow')) return 'vendor-flow'
+          if (id.includes('node_modules/@dnd-kit')) return 'vendor-dnd'
+          if (id.includes('node_modules/grapesjs')) return 'vendor-grapes'
           if (id.includes('node_modules/motion') || id.includes('node_modules/framer-motion')) return 'vendor-motion'
           return undefined
         },

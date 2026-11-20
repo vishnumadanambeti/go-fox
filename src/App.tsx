@@ -36,10 +36,13 @@ import {
   WhatsappPage,
 } from './pages/marketing'
 import { WorkflowRunsPage, WorkflowsPage } from './pages/automation'
-import { WorkflowBuilderRoute } from './pages/workflow-builder'
-import { LandingPageGrapesEditor } from './pages/landing-editor'
-import { EmailStudioEditor, EmailStudioPage } from './pages/email-studio'
 import { InboxPage } from './pages/inbox'
+
+// Lazy-load heavy visual builder canvases for lightning-fast initial load
+const WorkflowBuilderRoute = lazy(() => import('./pages/workflow-builder').then((m) => ({ default: m.WorkflowBuilderRoute })))
+const LandingPageGrapesEditor = lazy(() => import('./pages/landing-editor').then((m) => ({ default: m.LandingPageGrapesEditor })))
+const EmailStudioPage = lazy(() => import('./pages/email-studio').then((m) => ({ default: m.EmailStudioPage })))
+const EmailStudioEditor = lazy(() => import('./pages/email-studio').then((m) => ({ default: m.EmailStudioEditor })))
 import {
   KnowledgeBasePage,
   LiveChatPage,
@@ -115,7 +118,9 @@ export function App() {
   return (
     <>
       <AppShell>
-        <WorkspaceRoutes path={path} />
+        <Suspense fallback={<div className="flex h-full items-center justify-center p-8"><Spinner label="Loading workspace…" /></div>}>
+          <WorkspaceRoutes path={path} />
+        </Suspense>
       </AppShell>
       <Toasts />
     </>
@@ -179,7 +184,7 @@ function WorkspaceRoutes({ path }: { path: string }) {
   const contact = param('/contacts/:id')
   if (contact) return <ContactDetailPage id={contact.id} />
 
-  if (path === '/lists') return <ListsPage />
+  if (path === '/lists' || path === '/marketing/lists') return <ListsPage />
   const list = param('/lists/:id')
   if (list) return <ListDetailPage id={list.id} />
 

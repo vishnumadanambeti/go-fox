@@ -210,7 +210,7 @@ const TEMPLATE_PRESETS = [
 ]
 
 export function WorkflowsPage({ module }: { module?: string }) {
-  const { toast } = useApp()
+  const { toast, refreshMeta } = useApp()
   const navigate = useNavigate()
   const { data, loading, error, reload } = useFetch<{ data: Row[] }>(
     `/api/resources/workflows?limit=100${module ? `&module=${module}` : ''}`,

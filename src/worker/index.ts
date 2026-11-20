@@ -370,6 +370,7 @@ const EXTRAS: Record<string, string[]> = {
   leads: ['photo_url', 'avatar_url'],
   companies: ['logo_url'],
   campaigns: ['content', 'body_html'],
+  email_templates: ['html', 'css', 'plain_text', 'builder', 'thumbnail', 'document_json'],
 }
 
 function loadEntity(entity: string) {
@@ -3340,7 +3341,7 @@ app.get('/api/telephony/twiml', () => {
 
 app.post('/api/telephony/dial', async (c) => {
   const user = c.get('user')
-  const body = await readBody<{ number?: string; contact_id?: string }>(c)
+  const body = await readBody<{ number?: string; contact_id?: string; agent_phone?: string }>(c)
   const rawNumber = String(body.number ?? '').replace(/[^\d+]/g, '')
   if (rawNumber.length < 7) return fail(c, 'VALIDATION_ERROR', 'Enter a valid phone number.', 422)
 

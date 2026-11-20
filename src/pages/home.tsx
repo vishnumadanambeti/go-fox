@@ -882,7 +882,7 @@ export function HomePage() {
           title="My Open Tasks"
           value={Number(data?.counts?.tasks ?? data?.tasks?.length ?? 0)}
           icon={<Ticket size={16} />}
-          gradient="amber-coral"
+          gradient="coral-violet"
           to="/sales/tasks"
         />
       </div>

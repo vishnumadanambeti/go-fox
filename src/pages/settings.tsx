@@ -25,7 +25,7 @@ import {
   UserPlus,
   Wallet,
 } from 'lucide-react'
-import { get, patch, post, type Row } from '../lib/api'
+import { get, patch, post, del, type Row } from '../lib/api'
 import { Link, usePath } from '../lib/router'
 import { useApp, useFetch } from '../lib/app-context'
 import { formatDateTime, initials, titleCase } from '../lib/format'
@@ -264,7 +264,15 @@ export function AccountSettingsPage() {
 
 export function ProfileSettingsPage() {
   const { me, toast, refreshMe } = useApp()
-  const [form, setForm] = useState({ name: '', title: '', phone: '', timezone: '', locale: 'en' })
+  const [form, setForm] = useState({
+    name: '',
+    title: '',
+    phone: '',
+    timezone: '',
+    locale: 'en',
+    avatar_url: '',
+    photo_url: '',
+  })
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -329,7 +337,7 @@ export function ProfileSettingsPage() {
             <div className="flex items-center gap-4">
               {form.avatar_url || form.photo_url || me.avatar_url || me.photo_url ? (
                 <img
-                  src={form.avatar_url || form.photo_url || me.avatar_url || me.photo_url}
+                  src={form.avatar_url || form.photo_url || me.avatar_url || me.photo_url || ''}
                   alt="Profile avatar"
                   className="size-14 rounded-full object-cover border border-line shadow-xs"
                 />
@@ -1707,7 +1715,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-3.5 mb-4">
           {me?.avatar_url || me?.photo_url ? (
             <img
-              src={me.avatar_url || me.photo_url}
+              src={me.avatar_url || me.photo_url || ''}
               alt=""
               className="size-11 rounded-full object-cover border border-line shadow-xs shrink-0"
             />

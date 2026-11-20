@@ -17,7 +17,6 @@ import {
   FileSpreadsheet,
   FileText,
   Globe,
-  History,
   Layers,
   Link2,
   Mail,
@@ -1435,8 +1434,6 @@ export function LeadDetailPage({ id }: { id: string }) {
    ========================================================================== */
 
 export function ContactsPage() {
-  const navigate = useNavigate()
-  const { toast } = useApp()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)

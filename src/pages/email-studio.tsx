@@ -30,6 +30,9 @@ import { Link, useNavigate } from '../lib/router'
 import { Button, ErrorState, FormRow, Modal, Spinner, StatusBadge, cx } from '../components/ui'
 import { EMAIL_PRESETS, type EmailPreset } from '../data/emailTemplates'
 import { formatDateTime } from '../lib/format'
+import { EmailBuilder } from '../components/email-builder/EmailBuilder'
+import type { EmailDocument } from '../components/email-builder/types'
+import { createEmptyDocument } from '../components/email-builder/document-model'
 
 const VARIABLES = [
   { key: '{{first_name}}', label: 'First name' },
@@ -236,6 +239,7 @@ export function EmailStudioPage() {
         preview_text: '',
         status: 'draft',
         body: '',
+        document_json: JSON.stringify(createEmptyDocument()),
       })
       const record = (result as any)?.record
       if (record?.id) navigate(`/marketing/emails/${record.id}/edit`)
@@ -260,6 +264,7 @@ export function EmailStudioPage() {
         plain_text: preset.plain,
         builder: 'design',
         status: 'draft',
+        document_json: JSON.stringify(createEmptyDocument()),
       })
       const record = (result as any)?.record ?? (result as any)?.data
       toast(`${preset.name} added to your workspace.`, 'good')
@@ -703,6 +708,10 @@ export function EmailStudioEditor({ id }: { id: string }) {
   const editorRef = useRef<any>(null)
   const [editorReady, setEditorReady] = useState(false)
 
+  // New Email Builder State
+  const [useNewBuilder, setUseNewBuilder] = useState(true)
+  const [emailDocument, setEmailDocument] = useState<EmailDocument | null>(null)
+
   // Stripo Third-Party Integration State (BYOK with Graceful Removal & Fallback)
   const [stripoOpen, setStripoOpen] = useState(false)
   const [stripoPluginId, setStripoPluginId] = useState(() => {
@@ -785,6 +794,18 @@ export function EmailStudioEditor({ id }: { id: string }) {
     setStatus(String(record.status ?? 'draft'))
     const builder = String(record.builder ?? '')
     if (builder === 'code' || builder === 'plain') setMode(builder as 'code' | 'plain')
+
+    // Initialize new email builder document
+    if (record.document_json) {
+      try {
+        setEmailDocument(JSON.parse(String(record.document_json)))
+      } catch {
+        setEmailDocument(createEmptyDocument())
+      }
+    } else {
+      setEmailDocument(createEmptyDocument())
+    }
+
     setHydrated(true)
   }, [record, hydrated])
 
@@ -886,6 +907,7 @@ export function EmailStudioEditor({ id }: { id: string }) {
         plain_text: plain,
         builder: mode,
         status: activate ? 'active' : status,
+        document_json: emailDocument ? JSON.stringify(emailDocument) : null,
       })
       if (activate) setStatus('active')
       toast(activate ? 'Template activated — ready to send.' : 'Draft saved.', 'good')
@@ -955,8 +977,63 @@ export function EmailStudioEditor({ id }: { id: string }) {
     else setSubject((value) => `${value}${token}`)
   }
 
+  // New Email Builder Handlers
+  const handleNewBuilderSave = async (document: EmailDocument, html: string, plainText: string) => {
+    setEmailDocument(document)
+    setHtml(html)
+    setPlain(plainText)
+    try {
+      await patch(`/api/resources/email_templates/${id}`, {
+        name,
+        subject,
+        preview_text: preheader,
+        category,
+        html: sanitizeEmailHtml(html),
+        body: sanitizeEmailHtml(html),
+        plain_text: plainText,
+        builder: 'design',
+        status,
+        document_json: JSON.stringify(document),
+      })
+      toast('Email template saved.', 'good')
+      reload()
+    } catch (err: any) {
+      toast(err?.message ?? 'Could not save the template.', 'bad')
+      throw err
+    }
+  }
+
+  const handleNewBuilderSendTest = async (to: string, _html: string) => {
+    try {
+      await post<{ message: string }>(`/api/templates/${id}/test`, { to, contactId: testContact || undefined })
+      toast(`Test email sent to ${to}.`, 'good')
+    } catch (err: any) {
+      toast(err?.message ?? 'The test email could not be sent.', 'bad')
+      throw err
+    }
+  }
+
   if (loading || !hydrated) return <Spinner label="Loading email" />
   if (error || !record) return <ErrorState message={error?.message ?? 'Template not found'} onRetry={reload} />
+
+  // Show new World-Class Email Builder (dnd-kit powered)
+  if (useNewBuilder && emailDocument) {
+    return (
+      <EmailBuilder
+        id={id}
+        name={name}
+        onNameChange={setName}
+        status={status}
+        initialDocument={emailDocument}
+        onSave={handleNewBuilderSave}
+        onPublish={async () => save(true)}
+        onSendTest={handleNewBuilderSendTest}
+        onBack={() => navigate('/marketing/emails')}
+        onSwitchClassic={() => setUseNewBuilder(false)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-canvas">
@@ -980,6 +1057,12 @@ export function EmailStudioEditor({ id }: { id: string }) {
         </div>
 
         <div className="order-last flex w-full items-center gap-1.5 overflow-x-auto pb-0.5 gx-scroll sm:order-none sm:w-auto sm:overflow-visible">
+          <button
+            onClick={() => setUseNewBuilder(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-orange-500/50 bg-orange-50 px-2.5 py-1.5 text-[11.5px] font-semibold text-orange-700 hover:bg-orange-100 transition"
+          >
+            <Sparkles size={13} /> <span>Try New Builder</span>
+          </button>
           <div className="flex shrink-0 items-center gap-1 rounded-lg border border-line bg-surface-2 p-0.5">
             {(
               [
